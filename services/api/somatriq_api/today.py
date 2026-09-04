@@ -60,7 +60,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # today's resting_hr can never drift from the daily card's math.
 from .metrics import (
     _SECONDS_PER_DAY,
-    _cached_days,
     _coverage_ratio,
     _day_aggregates,
     _day_bounds_utc,
@@ -194,16 +193,14 @@ async def _today_resting_hr(
 ) -> tuple[float | None, str | None]:
     """Today's resting_hr + data_quality, read-through computed when absent.
 
-    Reuses the exact /metrics/daily path (cached row first, then the one-query
-    day compute and same-version upsert) so both surfaces agree by
-    construction.
+    Reuses the exact /metrics/daily compute (one-query day aggregates +
+    same-version upsert) so both surfaces agree by construction. Today is
+    by definition an OPEN day: never answer from its cached snapshot —
+    always recompute (grill decision 7: emit with marker + silent
+    recompute). The cached read only serves CLOSED baseline days.
     """
-    cached = await _cached_days(session, day, day)
-    summary = cached.get(day)
-    if summary is not None:
-        return summary.resting_hr, summary.data_quality
-
     expected_per_day = _SECONDS_PER_DAY / await _expected_cadence(session)
+
     range_start, range_end = _day_bounds_utc(day, tz)
     aggregates = await _day_aggregates(session, tz, range_start, range_end)
     agg = aggregates.get(day)
