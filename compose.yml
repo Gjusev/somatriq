@@ -20,7 +20,9 @@ x-python-base: &python-base
   build:
     context: .
     dockerfile: services/api/Dockerfile
-  env_file: .env
+  env_file:
+    - path: .env
+      required: false
   networks: [somatriq]
   restart: unless-stopped
   depends_on:
@@ -74,15 +76,15 @@ services:
       <<: *healthcheck
     labels:
       - traefik.enable=true
-      - traefik.http.routers.somatriq-api.rule=PathPrefix(`/api`)
+      - traefik.http.routers.somatriq-api.rule=Host(`${SOMATRIQ_HOST}`) && PathPrefix(`/api`)
       - traefik.http.routers.somatriq-api.entrypoints=websecure
       - traefik.http.routers.somatriq-api.tls.certresolver=letsencrypt
       - traefik.http.services.somatriq-api.loadbalancer.server.port=8000
 
   somatriq_web:
-    image: nginx:1.27-alpine
-    volumes:
-      - ./apps/web/out:/usr/share/nginx/html:ro
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
     networks: [somatriq, dokploy]
     restart: unless-stopped
     depends_on:
@@ -93,7 +95,7 @@ services:
       <<: *healthcheck
     labels:
       - traefik.enable=true
-      - traefik.http.routers.somatriq-web.rule=PathPrefix(`/`)
+      - traefik.http.routers.somatriq-web.rule=Host(`${SOMATRIQ_HOST}`) && PathPrefix(`/`)
       - traefik.http.routers.somatriq-web.entrypoints=websecure
       - traefik.http.routers.somatriq-web.tls.certresolver=letsencrypt
       - traefik.http.services.somatriq-web.loadbalancer.server.port=80
@@ -107,7 +109,7 @@ services:
       <<: *healthcheck
     labels:
       - traefik.enable=true
-      - traefik.http.routers.somatriq-mcp.rule=PathPrefix(`/mcp`)
+      - traefik.http.routers.somatriq-mcp.rule=Host(`${SOMATRIQ_HOST}`) && PathPrefix(`/mcp`)
       - traefik.http.routers.somatriq-mcp.entrypoints=websecure
       - traefik.http.routers.somatriq-mcp.tls.certresolver=letsencrypt
       - traefik.http.services.somatriq-mcp.loadbalancer.server.port=8100

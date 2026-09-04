@@ -1,0 +1,15 @@
+# Keep build contexts lean (python image builds from the repo root).
+.git
+.venv
+.github
+.env
+.env.*
+**/__pycache__
+**/*.pyc
+node_modules
+apps/web/out
+apps/web/.next
+tests
+docs
+*.md
+!README.md
