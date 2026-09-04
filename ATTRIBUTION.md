@@ -2,12 +2,22 @@
 
 ## NOOP
 
-Somatriq Mobile is a fork of NOOP. NOOP's attribution and license notices must
-remain intact in the fork and in any derived builds (spec §162).
+Somatriq Mobile is a fork of NOOP ("Strand" + android client). NOOP's
+attribution and license notices must remain intact in the fork and in any
+derived builds (spec §162).
 
-- Upstream: RECORD EXACT NOOP REPOSITORY URL (M0 fork research)
-- License: RECORD NOOP LICENSE AND ITS TERMS (M0 license inventory)
-- Fork: RECORD FORK URL
+- Upstream of record: https://github.com/ryanbr/noop
+- Origin source: https://github.com/muftiarfan/noop
+- License: PolyForm Noncommercial 1.0.0 (Copyright 2026 NoopApp)
+- Fork: https://github.com/Gjusev/noop
+
+## Protocol reverse-engineering credit chain
+
+NOOP's protocol documentation builds on community work that Somatriq
+indirectly benefits from and hereby credits:
+
+- WHOOP 4.0 protocol: `johnmiddleton12/my-whoop`
+- WHOOP 5.0/MG "puffin" packet framing: `b-nnett/goose`
 
 ## Standings
 
