@@ -8,6 +8,7 @@ import CorrelationsCard from "./components/correlations-card";
 import ExperimentsCard from "./components/experiments-card";
 import TrainingCard from "./components/training-card";
 import DevicesCard from "./components/devices-card";
+import DataCard from "./components/data-card";
 import SiteHeader from "./components/site-header";
 
 type ApiStatus = "checking" | "reachable" | "unreachable";
@@ -20,7 +21,9 @@ type ApiStatus = "checking" | "reachable" | "unreachable";
  * allowed to speak causally — a baseline, one change, an honest read.
  * Strength training (M12) adds the muscular-load layer — sessions, tonnage,
  * and the §80 training-vs-next-day-recovery response, correlational like
- * the matrix. The metric endpoints are unauthenticated today.
+ * the matrix. The Data card (M13) closes the loop on ownership — CSV import
+ * preview-first (§129) and full exports (§130), login-gated like devices.
+ * The metric endpoints are unauthenticated today.
  */
 export default function HomePage() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
@@ -62,6 +65,7 @@ export default function HomePage() {
       <ExperimentsCard />
       <TrainingCard />
       <DevicesCard />
+      <DataCard />
     </main>
   );
 }

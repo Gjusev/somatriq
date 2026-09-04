@@ -58,6 +58,8 @@ async def ready() -> dict[str, str]:
 # M10 (spec §81-82, §203): correlations — deterministic statistics, causal honesty.
 # M11 (spec §83-86, §204): N-of-1 experiments — baseline then intervention.
 # M12 (spec §78-80, §205): strength training — sessions, load, personal response.
+# M13 (spec §126, §129-130, §206): connectors — CSV import preview/commit,
+# connector registry, full data export (JSON/CSV + raw batch registry).
 from somatriq_api import (  # noqa: E402
     admin,
     auth,
@@ -65,6 +67,8 @@ from somatriq_api import (  # noqa: E402
     correlations,
     devices,
     experiments,
+    export,
+    imports,
     ingest,
     metrics,
     observations,
@@ -88,3 +92,6 @@ app.include_router(correlations.router)
 app.include_router(coach.router)
 app.include_router(experiments.router)
 app.include_router(training.router)
+app.include_router(imports.imports_router)
+app.include_router(imports.connectors_router)
+app.include_router(export.export_router)

@@ -276,6 +276,23 @@ code {
   border-color: var(--ink);
 }
 
+/* M13 data card: pasted CSV contents — the .field input rules, token for
+ * token, plus vertical resizing (the only addition a textarea needs). */
+.field textarea {
+  font: inherit;
+  font-size: 0.9375rem;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  resize: vertical;
+}
+
+.field textarea:focus {
+  border-color: var(--ink);
+}
+
 .field-hint {
   margin: 0;
   color: var(--muted);

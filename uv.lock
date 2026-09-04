@@ -1430,6 +1430,7 @@ dependencies = [
     { name = "pyjwt" },
     { name = "somatriq-agent" },
     { name = "somatriq-analytics" },
+    { name = "somatriq-connectors" },
     { name = "somatriq-contracts" },
     { name = "somatriq-db" },
     { name = "somatriq-replay" },
@@ -1452,6 +1453,7 @@ requires-dist = [
     { name = "pyjwt", specifier = ">=2.9" },
     { name = "somatriq-agent", editable = "services/agent" },
     { name = "somatriq-analytics", editable = "packages/analytics" },
+    { name = "somatriq-connectors", editable = "packages/connectors" },
     { name = "somatriq-contracts", editable = "packages/contracts" },
     { name = "somatriq-db", editable = "packages/db" },
     { name = "somatriq-replay", editable = "packages/replay" },
@@ -1467,6 +1469,12 @@ dev = [{ name = "httpx", specifier = ">=0.27" }]
 name = "somatriq-connectors"
 version = "0.0.0"
 source = { editable = "packages/connectors" }
+dependencies = [
+    { name = "somatriq-contracts" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "somatriq-contracts", editable = "packages/contracts" }]
 
 [[package]]
 name = "somatriq-contracts"

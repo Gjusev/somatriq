@@ -18,6 +18,9 @@ dependencies = [
     # M8: the /coach/ask endpoint drives the agent's coach engine directly
     # (deterministic tools + privacy chokepoint + provider, ADR 0009).
     "somatriq-agent",
+    # M13: the imports/connectors surface drives the connector registry and
+    # the pure CSV parser (spec §126, §129).
+    "somatriq-connectors",
     # zoneinfo has no system tz database on Windows (spec §161: only real needs)
     "tzdata>=2024.1; platform_system == 'Windows'",
 ]

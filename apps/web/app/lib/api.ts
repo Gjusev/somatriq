@@ -1219,3 +1219,157 @@ export function createTrainingSession(payload: {
 export function fetchTrainingResponse(days: number): Promise<TrainingResponse> {
   return getJson(`/api/v1/training/response?days=${days}`, false, parseTrainingResponse);
 }
+
+// ---------------------------------------------------------------------------
+// Imports / exports contract mirror (M13, somatriq_api/imports.py +
+// export.py — frozen shapes). Preview answers the exact §129 fields before
+// anything is written; commit is bound to the previewed content by the
+// one-shot preview token. Everything carries the account JWT — imports and
+// exports are owner operations, so the token rides authFetch. Downloads
+// cannot use a plain href (the JWT lives in localStorage, which never rides
+// a link): downloadExportFile fetches with authFetch, blobs the body and
+// clicks a temporary object URL instead.
+// ---------------------------------------------------------------------------
+
+export type ImportWarning = {
+  /** 1-based line in the file (the header is line 1). */
+  line: number;
+  reason: string;
+};
+
+export type ImportPreview = {
+  filename: string | null;
+  decoderVersion: string;
+  dateRange: { firstDay: string; lastDay: string } | null;
+  /** Deduplicated rows per metric, sorted by metric name. */
+  metrics: { metric: string; count: number }[];
+  recordCount: number;
+  duplicates: { inFile: number; alreadyPresent: number };
+  validationWarnings: ImportWarning[];
+  /** Total warnings — the list above is display-capped at 20. */
+  validationWarningCount: number;
+  skippedColumns: string[];
+  previewToken: string;
+  expiresAt: string;
+};
+
+export type ImportCommitResult = {
+  recordsReceived: number;
+  recordsInserted: number;
+  recordsDuplicate: number;
+  /** Ingest-ack warnings, e.g. "duplicate batch replay" on re-import. */
+  warnings: string[];
+  /** The preview's in-file warnings, recapped with the ack. */
+  validationWarnings: ImportWarning[];
+};
+
+function parseImportWarning(raw: unknown): ImportWarning {
+  if (!isRecord(raw)) unexpected();
+  return { line: parseRequiredCounter(raw.line), reason: parseString(raw.reason) };
+}
+
+function parseImportDateRange(raw: unknown): ImportPreview["dateRange"] {
+  if (!isRecord(raw)) unexpected();
+  const firstDay = parseDay(raw.first_day);
+  const lastDay = parseDay(raw.last_day);
+  return { firstDay, lastDay };
+}
+
+function parseMetricCount(raw: unknown): { metric: string; count: number } {
+  if (!isRecord(raw)) unexpected();
+  return { metric: parseString(raw.metric), count: parseRequiredCounter(raw.count) };
+}
+
+function parseImportPreview(raw: unknown): ImportPreview {
+  if (!isRecord(raw)) unexpected();
+  if (!isRecord(raw.duplicates) || !Array.isArray(raw.metrics)) unexpected();
+  if (!Array.isArray(raw.validation_warnings) || !Array.isArray(raw.skipped_columns)) {
+    unexpected();
+  }
+  return {
+    filename: parseNullableString(raw.filename ?? null),
+    decoderVersion: parseString(raw.decoder_version),
+    dateRange:
+      raw.date_range === null || raw.date_range === undefined
+        ? null
+        : parseImportDateRange(raw.date_range),
+    metrics: raw.metrics.map(parseMetricCount),
+    recordCount: parseRequiredCounter(raw.record_count),
+    duplicates: {
+      inFile: parseRequiredCounter(raw.duplicates.in_file),
+      alreadyPresent: parseRequiredCounter(raw.duplicates.already_present),
+    },
+    validationWarnings: raw.validation_warnings.map(parseImportWarning),
+    validationWarningCount: parseRequiredCounter(raw.validation_warning_count),
+    skippedColumns: parseStringArray(raw.skipped_columns),
+    previewToken: parseString(raw.preview_token),
+    expiresAt: parseString(raw.expires_at),
+  };
+}
+
+function parseImportCommit(raw: unknown): ImportCommitResult {
+  if (!isRecord(raw) || !isRecord(raw.ack)) unexpected();
+  const validationWarnings = Array.isArray(raw.validation_warnings)
+    ? raw.validation_warnings.map(parseImportWarning)
+    : [];
+  return {
+    recordsReceived: parseRequiredCounter(raw.ack.records_received),
+    recordsInserted: parseRequiredCounter(raw.ack.records_inserted),
+    recordsDuplicate: parseRequiredCounter(raw.ack.records_duplicate),
+    warnings: parseStringArray(raw.ack.warnings),
+    validationWarnings,
+  };
+}
+
+/** POST /api/v1/imports/preview — §129 preview; nothing is written. */
+export function previewCsvImport(
+  filename: string | null,
+  contentB64: string,
+): Promise<ImportPreview> {
+  return postJson(
+    "/api/v1/imports/preview",
+    { filename, content_b64: contentB64 },
+    true,
+    parseImportPreview,
+  );
+}
+
+/** POST /api/v1/imports/commit — same content bytes as the preview token. */
+export function commitCsvImport(
+  contentB64: string,
+  previewToken: string,
+): Promise<ImportCommitResult> {
+  return postJson(
+    "/api/v1/imports/commit",
+    { content_b64: contentB64, preview_token: previewToken },
+    true,
+    parseImportCommit,
+  );
+}
+
+/**
+ * Authenticated download (export endpoints, §130). The account JWT sits in
+ * localStorage and cannot ride an <a href>, so the file is fetched with
+ * authFetch, turned into a blob URL and clicked programmatically; the URL
+ * is revoked right after. Non-2xx (other than the 401 authFetch already
+ * redirected on) rejects as ApiError.
+ */
+export async function downloadExportFile(path: string, filename: string): Promise<void> {
+  const res = await authFetch(path);
+  if (!res.ok) {
+    if (res.status === 401) {
+      // authFetch already routed to /login; reject so callers stop.
+      throw new ApiError(401, null, "session expired");
+    }
+    throw await toApiError(res);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
