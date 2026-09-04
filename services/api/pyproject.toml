@@ -15,6 +15,9 @@ dependencies = [
     "somatriq-db",
     "somatriq-replay",
     "somatriq-analytics",
+    # M8: the /coach/ask endpoint drives the agent's coach engine directly
+    # (deterministic tools + privacy chokepoint + provider, ADR 0009).
+    "somatriq-agent",
     # zoneinfo has no system tz database on Windows (spec §161: only real needs)
     "tzdata>=2024.1; platform_system == 'Windows'",
 ]

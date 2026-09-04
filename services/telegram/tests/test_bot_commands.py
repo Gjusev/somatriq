@@ -8,8 +8,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any, cast
 from zoneinfo import ZoneInfo
 
-import pytest
-from conftest import requires_db as _conftest_requires_db
+from somatriq_db.testing import requires_db
 from somatriq_telegram.bot import (
     HELP_TEXT,
     handle_command,
@@ -18,8 +17,6 @@ from somatriq_telegram.bot import (
 )
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
-requires_db = cast(pytest.MarkDecorator, _conftest_requires_db)
 
 UTC_TZ = ZoneInfo("UTC")
 NOW = datetime(2026, 8, 21, 12, 0, 0, tzinfo=UTC)

@@ -54,9 +54,11 @@ async def ready() -> dict[str, str]:
 # M2 (ADR 0003/0015): local account auth, device pairing, device management.
 # M6 (spec §41-42): vendor daily observations, sleep sessions, RR intervals;
 # M6 today slice (spec §76): recovery + today under the metrics prefix.
+# M8 (spec §89-94, ADR 0009): AI coach — deterministic tools + privacy chokepoint.
 from somatriq_api import (  # noqa: E402
     admin,
     auth,
+    coach,
     devices,
     ingest,
     metrics,
@@ -76,3 +78,4 @@ app.include_router(observations.sleep_router)
 app.include_router(observations.rr_router)
 app.include_router(metrics.router)
 app.include_router(today.router)
+app.include_router(coach.router)

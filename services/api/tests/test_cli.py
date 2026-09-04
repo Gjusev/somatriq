@@ -10,10 +10,10 @@ from typing import TypeVar, cast
 
 import httpx
 import pytest
-from conftest import requires_db as _untyped_requires_db
 from somatriq_api.cli import _device_token_mint, _pairing_session_create, build_parser
 from somatriq_api.main import app
 from somatriq_db.engine import get_engine
+from somatriq_db.testing import requires_db as _untyped_requires_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 _F = TypeVar("_F", bound=Callable[..., object])

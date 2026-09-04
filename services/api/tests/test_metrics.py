@@ -9,16 +9,14 @@ import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from typing import cast
 
 import pytest
-from conftest import TEST_DATABASE_URL
-from conftest import requires_db as _conftest_requires_db
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from somatriq_api.metrics import router as metrics_router
 from somatriq_db.engine import get_engine, get_session
 from somatriq_db.models import Device, HeartRate, User
+from somatriq_db.testing import TEST_DATABASE_URL, requires_db
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -26,11 +24,6 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-
-# mypy cannot resolve the non-package conftest module, so its imports arrive
-# as Any; re-bind the marker with its runtime type to keep strict mode honest
-# without per-test ignores.
-requires_db = cast(pytest.MarkDecorator, _conftest_requires_db)
 
 BASE = datetime(2026, 9, 4, 12, 0, 0, tzinfo=UTC)  # aligned to a 5-minute boundary
 

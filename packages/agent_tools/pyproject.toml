@@ -1,9 +1,16 @@
 [project]
 name = "somatriq-agent-tools"
 version = "0.0.0"
-description = "Deterministic AI tools (spec 94)."
+description = "Deterministic AI tools (spec 94) — the only facts an LLM ever sees (ADR 0009)."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "sqlalchemy>=2.0",
+    "somatriq-contracts",
+    "somatriq-db",
+    "somatriq-analytics",
+    # zoneinfo has no system tz database on Windows (spec §161: only real needs)
+    "tzdata>=2024.1; platform_system == 'Windows'",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["somatriq_agent_tools"]

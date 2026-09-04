@@ -12,7 +12,6 @@ from uuid import UUID
 
 import httpx
 import pytest
-from conftest import requires_db as _untyped_requires_db
 from somatriq_api.main import app
 from somatriq_contracts.pairing import (
     DEVICE_SCOPES,
@@ -21,6 +20,7 @@ from somatriq_contracts.pairing import (
 )
 from somatriq_db.engine import get_engine
 from somatriq_db.models import DeviceToken, PairingSession
+from somatriq_db.testing import requires_db as _untyped_requires_db
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 

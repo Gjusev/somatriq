@@ -1,4 +1,9 @@
-"""Agent service stub - health endpoint + placeholder."""
+"""Agent service — health endpoint only (M8).
+
+The coach engine (somatriq_agent.coach) is an on-demand library consumed by
+the api's /api/v1/coach/ask; this process runs no background work (ADR 0009:
+deterministic tools first, nothing to poll).
+"""
 
 import os
 import threading

@@ -12,10 +12,10 @@ from typing import TypeVar, cast
 import httpx
 import jwt as pyjwt
 import pytest
-from conftest import requires_db as _untyped_requires_db
 from somatriq_api.main import app
 from somatriq_api.settings import get_settings
 from somatriq_db.engine import get_engine
+from somatriq_db.testing import requires_db as _untyped_requires_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 _F = TypeVar("_F", bound=Callable[..., object])

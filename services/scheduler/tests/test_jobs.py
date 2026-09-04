@@ -9,13 +9,10 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Any, cast
 from zoneinfo import ZoneInfo
 
-import pytest
-from conftest import requires_db as _conftest_requires_db
+from somatriq_db.testing import requires_db
 from somatriq_scheduler.jobs import morning_tick
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
-requires_db = cast(pytest.MarkDecorator, _conftest_requires_db)
 
 UTC_TZ = ZoneInfo("UTC")
 BRIEF_TIME = time(7, 0)

@@ -68,11 +68,12 @@ python_version = "3.12"
 strict = true
 ignore_missing_imports = true
 explicit_package_bases = true
-# Three M7 test dirs each carry a conftest.py; under explicit_package_bases
-# mypy maps every tests/conftest.py to the same "tests.conftest" module and
-# aborts on the duplicate. Keep discovery to one (api); the others are
-# imported by their tests as Any, exactly like the api tests import theirs.
-exclude = '^services/(telegram|scheduler|notifications)/tests/conftest\.py$'
+# Shared-name test files collide under explicit_package_bases (every
+# mypy_path base resolves them to the same module): the M7 services'
+# tests/conftest.py and the M8 agent_tests conftest pair (packages/
+# agent_tools + services/agent). Keep discovery to one of each; the excluded
+# ones are injected by pytest fixtures, never imported by name.
+exclude = '^services/(telegram|scheduler|notifications)/tests/conftest\.py$|^packages/agent_tools/agent_tests/conftest\.py$'
 mypy_path = [
     "services/api",
     "services/mcp",

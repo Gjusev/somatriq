@@ -16,11 +16,11 @@ from uuid import UUID, uuid4
 import httpx
 import pytest
 import zstandard
-from conftest import requires_db as _untyped_requires_db
 from somatriq_api.main import app
 from somatriq_contracts.errors import ErrorCode
 from somatriq_db.engine import get_engine
 from somatriq_db.models import HeartRate, ReplayedObservation
+from somatriq_db.testing import requires_db as _untyped_requires_db
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 

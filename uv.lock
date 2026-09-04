@@ -1361,11 +1361,45 @@ dev = [
 name = "somatriq-agent"
 version = "0.0.0"
 source = { editable = "services/agent" }
+dependencies = [
+    { name = "somatriq-agent-tools" },
+    { name = "somatriq-analytics" },
+    { name = "somatriq-contracts" },
+    { name = "somatriq-db" },
+    { name = "sqlalchemy" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "somatriq-agent-tools", editable = "packages/agent_tools" },
+    { name = "somatriq-analytics", editable = "packages/analytics" },
+    { name = "somatriq-contracts", editable = "packages/contracts" },
+    { name = "somatriq-db", editable = "packages/db" },
+    { name = "sqlalchemy", specifier = ">=2.0" },
+    { name = "tzdata", marker = "sys_platform == 'win32'", specifier = ">=2024.1" },
+]
 
 [[package]]
 name = "somatriq-agent-tools"
 version = "0.0.0"
 source = { editable = "packages/agent_tools" }
+dependencies = [
+    { name = "somatriq-analytics" },
+    { name = "somatriq-contracts" },
+    { name = "somatriq-db" },
+    { name = "sqlalchemy" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "somatriq-analytics", editable = "packages/analytics" },
+    { name = "somatriq-contracts", editable = "packages/contracts" },
+    { name = "somatriq-db", editable = "packages/db" },
+    { name = "sqlalchemy", specifier = ">=2.0" },
+    { name = "tzdata", marker = "sys_platform == 'win32'", specifier = ">=2024.1" },
+]
 
 [[package]]
 name = "somatriq-analytics"
@@ -1394,6 +1428,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "pydantic" },
     { name = "pyjwt" },
+    { name = "somatriq-agent" },
     { name = "somatriq-analytics" },
     { name = "somatriq-contracts" },
     { name = "somatriq-db" },
@@ -1415,6 +1450,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pyjwt", specifier = ">=2.9" },
+    { name = "somatriq-agent", editable = "services/agent" },
     { name = "somatriq-analytics", editable = "packages/analytics" },
     { name = "somatriq-contracts", editable = "packages/contracts" },
     { name = "somatriq-db", editable = "packages/db" },

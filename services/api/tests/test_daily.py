@@ -14,8 +14,6 @@ from typing import cast
 from zoneinfo import ZoneInfo
 
 import pytest
-from conftest import TEST_DATABASE_URL
-from conftest import requires_db as _conftest_requires_db
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from somatriq_api import metrics
@@ -23,6 +21,7 @@ from somatriq_api.metrics import router as metrics_router
 from somatriq_contracts.daily import FEATURE_SET_VERSION
 from somatriq_db.engine import get_engine, get_session
 from somatriq_db.models import DailyFeature, Device, User
+from somatriq_db.testing import TEST_DATABASE_URL, requires_db
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -30,11 +29,6 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-
-# mypy cannot resolve the non-package conftest module, so its imports arrive
-# as Any; re-bind the marker with its runtime type to keep strict mode honest
-# without per-test ignores.
-requires_db = cast(pytest.MarkDecorator, _conftest_requires_db)
 
 MADRID = ZoneInfo("Europe/Madrid")
 

@@ -1,9 +1,17 @@
 [project]
 name = "somatriq-agent"
 version = "0.0.0"
-description = "AI coach orchestrator lands M8 (ADR 0009: deterministic tools first)."
+description = "AI coach engine: provider abstraction, privacy chokepoint, orchestrator (spec §89-94, ADR 0009)."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "sqlalchemy>=2.0",
+    "somatriq-contracts",
+    "somatriq-db",
+    "somatriq-analytics",
+    "somatriq-agent-tools",
+    # zoneinfo has no system tz database on Windows (spec §161: only real needs)
+    "tzdata>=2024.1; platform_system == 'Windows'",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["somatriq_agent"]

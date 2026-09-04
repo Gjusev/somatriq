@@ -15,13 +15,13 @@ from typing import TypeVar, cast
 
 import httpx
 import pytest
-from conftest import requires_db as _untyped_requires_db
 from fastapi.routing import APIRoute
 from somatriq_api.ingest import router
 from somatriq_api.main import app
 from somatriq_api.security import require_ingest_principal
 from somatriq_api.settings import get_settings
 from somatriq_db.engine import get_engine
+from somatriq_db.testing import requires_db as _untyped_requires_db
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 

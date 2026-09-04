@@ -14,7 +14,7 @@ from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest
-from conftest import requires_db as _conftest_requires_db
+from somatriq_db.testing import requires_db
 from somatriq_notifications.sender import (
     NtfyError,
     NtfySender,
@@ -25,10 +25,6 @@ from somatriq_notifications.sender import (
 from somatriq_telegram.telegram_client import TelegramClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
-# mypy cannot resolve the non-package conftest module, so its imports arrive
-# as Any; re-bind the marker with its runtime type to keep strict mode honest.
-requires_db = cast(pytest.MarkDecorator, _conftest_requires_db)
 
 UTC = ZoneInfo("UTC")
 
