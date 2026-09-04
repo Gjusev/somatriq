@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Somatriq mark: a calm pulse line in ink on paper -->
+  <rect width="32" height="32" rx="6" fill="#fafafa"/>
+  <path d="M4 16h6l3-8 5 16 3-8h7" fill="none" stroke="#18181b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
