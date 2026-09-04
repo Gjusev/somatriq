@@ -5,6 +5,8 @@ one data source (M1); M2 adds the local account credential, pairing sessions
 and hashed device tokens (ADR 0015), plus the raw blob registry (ADR 0003).
 M6 adds the vendor observation families under health/ (daily scores, sleep
 sessions + stages) and the timeseries.rr_interval hypertable (§41-42).
+M7 adds health.journal_events (Telegram/quick logging, §103) and the
+notifications channels + outbox (§105).
 """
 
 import uuid
@@ -22,6 +24,7 @@ from sqlalchemy import (
     MetaData,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
 )
@@ -438,3 +441,90 @@ class PersonalAccessToken(Base):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# ── health: journal / quick-log events (M7, spec §101, §103) ──────────────
+
+
+class JournalEvent(Base):
+    """One user-entered event: journal note, caffeine, training, checkin.
+
+    ``structured`` carries the deterministic validated payload — for caffeine
+    (spec §103) quantity is present ONLY when a number was literally stated,
+    otherwise ``{"estimated": false}``; a quantity is never invented. The
+    verbatim ``text`` is kept as provenance (ADR 0013 spirit: never discard
+    the source statement).
+    """
+
+    __tablename__ = "journal_events"
+    __table_args__ = {"schema": "health"}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity.users.id"))
+    source: Mapped[str] = mapped_column(Text)  # telegram | web | api
+    kind: Mapped[str] = mapped_column(
+        Text
+    )  # journal | caffeine | training | experiment_checkin | note
+    ts: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    text: Mapped[str | None] = mapped_column(Text)
+    structured: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+# ── notifications: channels + outbox (M7, spec §105) ──────────────────────
+
+
+class NotificationChannel(Base):
+    """A delivery binding: telegram chat id or ntfy topic.
+
+    UNIQUE (user_id, kind, target) makes the /start owner binding exclusive
+    by construction — a second chat cannot silently take over.
+    """
+
+    __tablename__ = "channels"
+    __table_args__ = (
+        UniqueConstraint("user_id", "kind", "target", name="channels_user_kind_target_key"),
+        {"schema": "notifications"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity.users.id"))
+    kind: Mapped[str] = mapped_column(Text)  # telegram | ntfy
+    target: Mapped[str] = mapped_column(Text)  # chat id / topic
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class NotificationOutbox(Base):
+    """One queued notification; the notifications service drains this.
+
+    status pending|sent|failed; attempts caps retries (spec §105 — the
+    engine retries with a cap and records last_error, never silently).
+    """
+
+    __tablename__ = "outbox"
+    __table_args__ = {"schema": "notifications"}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=func.gen_random_uuid()
+    )
+    channel_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("notifications.channels.id"))
+    kind: Mapped[str] = mapped_column(Text)  # morning_brief | sync_warning | anomaly | test
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(Text, default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

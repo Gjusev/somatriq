@@ -1,9 +1,15 @@
 [project]
 name = "somatriq-notifications"
 version = "0.0.0"
-description = "Notification engine lands M7 (anti-fatigue rules, spec section 106)."
+description = "Notification engine (M7): outbox drain, telegram + ntfy (spec 105-106)."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "somatriq-contracts",
+    "somatriq-db",
+    "somatriq-analytics",
+    # Same Bot API client the telegram service uses (one implementation).
+    "somatriq-telegram",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["somatriq_notifications"]

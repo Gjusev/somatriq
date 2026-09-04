@@ -1,0 +1,243 @@
+"""Golden-string tests for the deterministic morning brief (spec §102; ADR
+0009 — pure rendering, no LLM). Goldens pin the exact wire format; partial
+and empty days MUST render honest markers, never fabricated numbers (grill
+decision: emit with marker beats skipping).
+"""
+
+from datetime import date
+
+from somatriq_analytics.brief import build_morning_brief
+from somatriq_analytics.recovery import baseline, recovery_v1
+from somatriq_analytics.today_data import JournalToday, TodayData
+from somatriq_contracts.recovery import HrvSummary, SleepSummary
+
+DAY = date(2026, 8, 21)
+
+
+def _today(
+    *,
+    recovery_inputs: dict[str, float | None],
+    baselines: dict[str, tuple[float, float] | None],
+    hrv_rmssd: float | None,
+    sleep_minutes: float | None,
+    resting_hr: float | None,
+    coverage: float = 0.0,
+) -> tuple[TodayData, float]:
+    recovery = recovery_v1(day=DAY, inputs=recovery_inputs, baselines=baselines)
+    data = TodayData(
+        date=DAY,
+        timezone="UTC",
+        recovery=recovery,
+        hrv=HrvSummary(day=DAY, rmssd_ms=hrv_rmssd) if hrv_rmssd is not None else None,
+        sleep=(
+            SleepSummary(day=DAY, duration_minutes=sleep_minutes)
+            if sleep_minutes is not None
+            else None
+        ),
+        resting_hr=resting_hr,
+        resting_hr_quality="good" if coverage >= 0.5 else "insufficient",
+        coverage_ratio=coverage,
+        journal=JournalToday(caffeine_count=1),
+    )
+    return data, coverage
+
+
+def test_full_data_golden() -> None:
+    """Full day: §102 block format, percent-vs-baseline, insight, quality."""
+    data, coverage = _today(
+        recovery_inputs={"hrv": 106.0, "rhr": 60.0, "sleep": 441.0},
+        baselines={
+            # z' = +1.0 for hrv ((106-100)/(12/2)); 6% above the 100 median
+            "hrv": (100.0, 12.0),
+            # z' = 0 for rhr (60 on its median)
+            "rhr": (60.0, 2.0),
+            # z' = +1.0 for sleep ((441-431)/(20/2))
+            "sleep": (431.0, 20.0),
+        },
+        hrv_rmssd=106.0,
+        sleep_minutes=441.0,
+        resting_hr=56.0,
+        coverage=0.97,
+    )
+    # score = 100*(0.5 + (0.4+0.3)*tanh(1)/2) = 76.66 -> rendered as 77
+    assert data.recovery.score is not None
+    assert build_morning_brief(data, coverage) == (
+        "Good morning\n"
+        "\n"
+        "Recovery\n"
+        "77\n"
+        "\n"
+        "Sleep\n"
+        "7 h 21 min\n"
+        "\n"
+        "HRV\n"
+        "106 ms\n"
+        "6 percent above baseline\n"
+        "\n"
+        "RHR\n"
+        "56 bpm\n"
+        "\n"
+        "Main insight\n"
+        "HRV higher than your recent average\n"
+        "\n"
+        "Data quality\n"
+        "good — 97 percent coverage"
+    )
+
+
+def test_partial_data_golden_honest_markers() -> None:
+    """Sleep + RHR present, HRV missing, no usable baselines: score null,
+    HRV says no data, missing inputs listed — nothing fabricated."""
+    data, coverage = _today(
+        recovery_inputs={"hrv": None, "rhr": 60.0, "sleep": 441.0},
+        baselines={"hrv": None, "rhr": None, "sleep": None},
+        hrv_rmssd=None,
+        sleep_minutes=441.0,
+        resting_hr=60.0,
+        coverage=0.4,
+    )
+    assert build_morning_brief(data, coverage) == (
+        "Good morning\n"
+        "\n"
+        "Recovery\n"
+        "not available yet\n"
+        "\n"
+        "Sleep\n"
+        "7 h 21 min\n"
+        "\n"
+        "HRV\n"
+        "no data yet\n"
+        "\n"
+        "RHR\n"
+        "60 bpm\n"
+        "\n"
+        "Missing inputs\n"
+        "hrv\n"
+        "\n"
+        "Data quality\n"
+        "fair — 40 percent coverage"
+    )
+
+
+def test_empty_day_golden() -> None:
+    """No data at all: every section honest, all inputs listed missing."""
+    data, coverage = _today(
+        recovery_inputs={"hrv": None, "rhr": None, "sleep": None},
+        baselines={"hrv": None, "rhr": None, "sleep": None},
+        hrv_rmssd=None,
+        sleep_minutes=None,
+        resting_hr=None,
+        coverage=0.0,
+    )
+    assert build_morning_brief(data, coverage) == (
+        "Good morning\n"
+        "\n"
+        "Recovery\n"
+        "not available yet\n"
+        "\n"
+        "Sleep\n"
+        "no data yet\n"
+        "\n"
+        "HRV\n"
+        "no data yet\n"
+        "\n"
+        "RHR\n"
+        "no data yet\n"
+        "\n"
+        "Missing inputs\n"
+        "hrv, rhr, sleep\n"
+        "\n"
+        "Data quality\n"
+        "insufficient — 0 percent coverage"
+    )
+
+
+def test_inputs_present_but_baselines_building_golden() -> None:
+    """All inputs present, no baseline has 7 days: score null with an honest
+    baselines note (not 'missing inputs'), HRV value still shown."""
+    data, coverage = _today(
+        recovery_inputs={"hrv": 106.0, "rhr": 60.0, "sleep": 441.0},
+        baselines={"hrv": None, "rhr": None, "sleep": None},
+        hrv_rmssd=106.0,
+        sleep_minutes=441.0,
+        resting_hr=60.0,
+        coverage=0.6,
+    )
+    assert build_morning_brief(data, coverage) == (
+        "Good morning\n"
+        "\n"
+        "Recovery\n"
+        "not available yet\n"
+        "\n"
+        "Sleep\n"
+        "7 h 21 min\n"
+        "\n"
+        "HRV\n"
+        "106 ms\n"
+        "baseline still building\n"
+        "\n"
+        "RHR\n"
+        "60 bpm\n"
+        "\n"
+        "Missing inputs\n"
+        "none — baselines still building (needs >= 7 days)\n"
+        "\n"
+        "Data quality\n"
+        "good — 60 percent coverage"
+    )
+
+
+def test_hrv_below_baseline_and_substantial_insight() -> None:
+    """Below-baseline percent renders signed-away; |z'| >= 2 earns
+    'substantially'; rhr direction flips because lower raw HR is positive."""
+    data, coverage = _today(
+        recovery_inputs={"hrv": 80.0, "rhr": 66.0, "sleep": 421.0},
+        baselines={
+            "hrv": (100.0, 20.0),  # z' = -2.0
+            "rhr": (60.0, 4.0),  # z' = -(66-60)/2 = -3.0 -> strongest
+            "sleep": (431.0, 20.0),  # z' = -1.0
+        },
+        hrv_rmssd=80.0,
+        sleep_minutes=421.0,
+        resting_hr=66.0,
+        coverage=0.55,
+    )
+    brief = build_morning_brief(data, coverage)
+    assert "HRV\n80 ms\n20 percent below baseline" in brief
+    assert "Main insight\nResting heart rate substantially higher than your recent average" in brief
+
+
+def test_neutral_insight_and_in_line_percent() -> None:
+    """All z' inside the neutral band: 'in line' insight; 0% delta renders
+    'in line with baseline'."""
+    data, coverage = _today(
+        recovery_inputs={"hrv": 100.0, "rhr": 60.0, "sleep": 431.0},
+        baselines={"hrv": (100.0, 12.0), "rhr": (60.0, 4.0), "sleep": (431.0, 20.0)},
+        hrv_rmssd=100.0,
+        sleep_minutes=431.0,
+        resting_hr=60.0,
+        coverage=0.99,
+    )
+    brief = build_morning_brief(data, coverage)
+    assert "HRV\n100 ms\nin line with baseline" in brief
+    assert "Main insight\nHRV in line with your recent average" in brief
+
+
+def test_brief_is_deterministic() -> None:
+    """Same input, same string — twice, byte for byte (ADR 0009)."""
+    data, coverage = _today(
+        recovery_inputs={"hrv": 106.0, "rhr": 60.0, "sleep": 441.0},
+        baselines={"hrv": (100.0, 12.0), "rhr": (60.0, 2.0), "sleep": (431.0, 20.0)},
+        hrv_rmssd=106.0,
+        sleep_minutes=441.0,
+        resting_hr=56.0,
+        coverage=0.97,
+    )
+    assert build_morning_brief(data, coverage) == build_morning_brief(data, coverage)
+
+
+def test_baseline_helper_feeds_brief_without_invention() -> None:
+    """baseline() returns None under the 7-day minimum and the brief says so
+    — the two pieces compose without ever faking a baseline."""
+    assert baseline([100.0, 101.0]) is None
+    assert baseline([float(i) for i in range(7)]) is not None

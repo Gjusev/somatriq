@@ -1,9 +1,15 @@
 [project]
 name = "somatriq-scheduler"
 version = "0.0.0"
-description = "Scheduler creates jobs; it never performs heavy work itself (spec section 137)."
+description = "Scheduler creates jobs; it never performs heavy work itself (spec section 135)."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "somatriq-contracts",
+    "somatriq-db",
+    "somatriq-analytics",
+    # zoneinfo has no system tz database on Windows (spec 161: only real needs)
+    "tzdata>=2024.1; platform_system == 'Windows'",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["somatriq_scheduler"]

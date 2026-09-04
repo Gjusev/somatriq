@@ -1374,12 +1374,14 @@ source = { editable = "packages/analytics" }
 dependencies = [
     { name = "pydantic" },
     { name = "somatriq-contracts" },
+    { name = "sqlalchemy" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "pydantic", specifier = ">=2.9" },
     { name = "somatriq-contracts", editable = "packages/contracts" },
+    { name = "sqlalchemy", specifier = ">=2.0" },
 ]
 
 [[package]]
@@ -1494,6 +1496,20 @@ requires-dist = [
 name = "somatriq-notifications"
 version = "0.0.0"
 source = { editable = "services/notifications" }
+dependencies = [
+    { name = "somatriq-analytics" },
+    { name = "somatriq-contracts" },
+    { name = "somatriq-db" },
+    { name = "somatriq-telegram" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "somatriq-analytics", editable = "packages/analytics" },
+    { name = "somatriq-contracts", editable = "packages/contracts" },
+    { name = "somatriq-db", editable = "packages/db" },
+    { name = "somatriq-telegram", editable = "services/telegram" },
+]
 
 [[package]]
 name = "somatriq-observability"
@@ -1529,11 +1545,39 @@ requires-dist = [
 name = "somatriq-scheduler"
 version = "0.0.0"
 source = { editable = "services/scheduler" }
+dependencies = [
+    { name = "somatriq-analytics" },
+    { name = "somatriq-contracts" },
+    { name = "somatriq-db" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "somatriq-analytics", editable = "packages/analytics" },
+    { name = "somatriq-contracts", editable = "packages/contracts" },
+    { name = "somatriq-db", editable = "packages/db" },
+    { name = "tzdata", marker = "sys_platform == 'win32'", specifier = ">=2024.1" },
+]
 
 [[package]]
 name = "somatriq-telegram"
 version = "0.0.0"
 source = { editable = "services/telegram" }
+dependencies = [
+    { name = "somatriq-analytics" },
+    { name = "somatriq-contracts" },
+    { name = "somatriq-db" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "somatriq-analytics", editable = "packages/analytics" },
+    { name = "somatriq-contracts", editable = "packages/contracts" },
+    { name = "somatriq-db", editable = "packages/db" },
+    { name = "tzdata", marker = "sys_platform == 'win32'", specifier = ">=2024.1" },
+]
 
 [[package]]
 name = "somatriq-worker"
