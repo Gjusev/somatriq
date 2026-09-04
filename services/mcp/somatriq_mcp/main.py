@@ -10,7 +10,7 @@ PORT = int(os.environ.get("MCP_HEALTH_PORT", "8100"))
 
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
-        if self.path == "/health":
+        if self.path in ("/health", "/mcp/health"):
             body = b'{"status":"ok","service":"somatriq_mcp"}'
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
