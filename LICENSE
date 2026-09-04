@@ -1,0 +1,15 @@
+LICENSE — PLACEHOLDER (private repository)
+
+Status: private, not distributed. Ratified before any publication.
+
+Somatriq intends a noncommercial source-available license compatible with the
+restrictions inherited from NOOP. The NOOP license inventory (ADR 0004) is a
+required M0 deliverable; until it is complete and a license is ratified:
+
+- This repository must remain private.
+- No redistribution, no public forks, no publishing of derived builds.
+- NOOP attribution obligations remain in force regardless (see NOTICE and
+  ATTRIBUTION.md).
+
+Decision record: docs/grill/2026-09-04-spec-grill.md, decision 5 ("Private for
+now").
