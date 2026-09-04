@@ -657,3 +657,91 @@ code {
     --muted: #a1a1aa;
   }
 }
+
+/*
+ * M10 correlations card: a quiet scientific table. Extends the M0/M1 tokens
+ * only — hairline separators, mono tabular numerals, sign coloring via the
+ * existing --ok/--bad hues at small size. No new hues, no decoration (spec
+ * §15-18; §81 "never display only a correlation coefficient").
+ */
+
+.corr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.corr-table th {
+  padding: 0.375rem 0;
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.corr-table tbody tr + tr td {
+  border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+.corr-table td {
+  padding: 0.375rem 0.5rem 0.375rem 0;
+}
+
+.corr-num-col {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.corr-pair {
+  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-size: 0.8125rem;
+}
+
+/* Sign coloring stays quiet: the existing status hues at table size. */
+.corr-r-pos { color: var(--ok); }
+.corr-r-neg { color: var(--bad); }
+
+.corr-band {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* Skipped pairs: collapsed, honest, one line each. */
+.corr-skipped {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.corr-skipped summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.corr-skipped summary:focus-visible {
+  outline-offset: 1px;
+}
+
+.corr-skipped ul {
+  margin: 0.5rem 0 0;
+  padding: 0 0 0 1.25rem;
+  color: var(--muted);
+}
+
+.corr-skipped li {
+  padding: 0.125rem 0;
+  font-size: 0.75rem;
+  max-width: 52ch;
+}
+
+/* The causal-language note: persistent footer of the card (spec §82). */
+.corr-note {
+  margin: 1rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 15%, transparent);
+  color: var(--muted);
+  font-size: 0.75rem;
+  max-width: 56ch;
+}

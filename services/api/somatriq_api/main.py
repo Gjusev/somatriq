@@ -55,10 +55,12 @@ async def ready() -> dict[str, str]:
 # M6 (spec §41-42): vendor daily observations, sleep sessions, RR intervals;
 # M6 today slice (spec §76): recovery + today under the metrics prefix.
 # M8 (spec §89-94, ADR 0009): AI coach — deterministic tools + privacy chokepoint.
+# M10 (spec §81-82, §203): correlations — deterministic statistics, causal honesty.
 from somatriq_api import (  # noqa: E402
     admin,
     auth,
     coach,
+    correlations,
     devices,
     ingest,
     metrics,
@@ -78,4 +80,5 @@ app.include_router(observations.sleep_router)
 app.include_router(observations.rr_router)
 app.include_router(metrics.router)
 app.include_router(today.router)
+app.include_router(correlations.router)
 app.include_router(coach.router)

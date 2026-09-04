@@ -662,3 +662,122 @@ export function fetchDailySummary(days: number): Promise<DailySummaryResponse> {
 export function fetchToday(): Promise<TodayResponse> {
   return getJson("/api/v1/metrics/today", false, parseToday);
 }
+
+// ---------------------------------------------------------------------------
+// Correlation matrix contract mirror (M10, somatriq_api/correlations.py —
+// frozen shapes). The matrix is unauthenticated like the other metric
+// reads; every field is validated, and the causal-language note travels on
+// the wire and is rendered verbatim (spec §82: no causal claims, ever).
+// ---------------------------------------------------------------------------
+
+export type CorrelationBand = "none" | "weak" | "moderate" | "strong";
+
+export type CorrelationMethod = "pearson" | "spearman";
+
+export type CorrelationPairRow = {
+  /** Canonical catalog order within the pair. */
+  pair: [string, string];
+  /** Shared days the coefficient was computed over. */
+  n: number;
+  /** Spearman ρ (default) or Pearson r, in [-1, 1]. */
+  r: number;
+  band: CorrelationBand;
+  /** p < Bonferroni-adjusted α for the n_tests coefficients computed. */
+  significant: boolean;
+};
+
+export type CorrelationSkippedRow = {
+  pair: [string, string];
+  /** Why no coefficient exists — reported, never hidden. */
+  reason: string;
+};
+
+export type CorrelationMatrixResponse = {
+  days: number;
+  method: CorrelationMethod;
+  nTests: number;
+  bonferroniAlpha: number;
+  pairs: CorrelationPairRow[];
+  skipped: CorrelationSkippedRow[];
+  note: string;
+};
+
+function parseCorrelationBand(value: unknown): CorrelationBand {
+  switch (value) {
+    case "none":
+    case "weak":
+    case "moderate":
+    case "strong":
+      return value;
+    default:
+      unexpected();
+  }
+}
+
+function parseCorrelationMethod(value: unknown): CorrelationMethod {
+  switch (value) {
+    case "pearson":
+    case "spearman":
+      return value;
+    default:
+      unexpected();
+  }
+}
+
+/** Required finite float (the optional variant returns null instead). */
+function parseRequiredFinite(value: unknown): number {
+  const parsed = parseFiniteNumber(value);
+  return parsed === null ? unexpected() : parsed;
+}
+
+function parseRequiredCounter(value: unknown): number {
+  return Math.round(parseRequiredFinite(value));
+}
+
+function parseMetricPair(value: unknown): [string, string] {
+  if (!Array.isArray(value) || value.length !== 2) unexpected();
+  return [parseString(value[0]), parseString(value[1])];
+}
+
+function parseCorrelationPairRow(raw: unknown): CorrelationPairRow {
+  if (!isRecord(raw)) unexpected();
+  const r = parseRequiredFinite(raw.r);
+  if (r < -1 || r > 1) unexpected();
+  return {
+    pair: parseMetricPair(raw.pair),
+    n: parseRequiredCounter(raw.n),
+    r,
+    band: parseCorrelationBand(raw.band),
+    significant: raw.significant === true,
+  };
+}
+
+function parseCorrelationSkippedRow(raw: unknown): CorrelationSkippedRow {
+  if (!isRecord(raw)) unexpected();
+  return { pair: parseMetricPair(raw.pair), reason: parseString(raw.reason) };
+}
+
+function parseCorrelationMatrix(raw: unknown): CorrelationMatrixResponse {
+  if (!isRecord(raw)) unexpected();
+  if (!Array.isArray(raw.pairs) || !Array.isArray(raw.skipped)) unexpected();
+  const alpha = parseRequiredFinite(raw.bonferroni_alpha);
+  if (alpha <= 0 || alpha > 1) unexpected();
+  return {
+    days: parseRequiredCounter(raw.days),
+    method: parseCorrelationMethod(raw.method),
+    nTests: parseRequiredCounter(raw.n_tests),
+    bonferroniAlpha: alpha,
+    pairs: raw.pairs.map(parseCorrelationPairRow),
+    skipped: raw.skipped.map(parseCorrelationSkippedRow),
+    note: parseString(raw.note),
+  };
+}
+
+/**
+ * GET /api/v1/correlations/matrix?days=N — every catalog pair over the
+ * window, sorted by |r| descending. Insufficient pairs arrive in `skipped`
+ * with their reasons; the note is the persistent causal-language footer.
+ */
+export function fetchCorrelationMatrix(days: number): Promise<CorrelationMatrixResponse> {
+  return getJson(`/api/v1/correlations/matrix?days=${days}`, false, parseCorrelationMatrix);
+}
