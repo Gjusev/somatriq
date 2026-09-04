@@ -399,7 +399,11 @@ async def read_daily_summary(
     requested = [today - timedelta(days=days - 1 - i) for i in range(days)]
 
     cached = await _cached_days(session, requested[0], requested[-1])
-    missing = [day for day in requested if day not in cached]
+    # Open local days (>= today) ALWAYS recompute: their cached row is a
+    # mid-accumulation snapshot, and late-arriving samples must show up
+    # (the grill decision: emit with coverage marker + silent recompute).
+    # ADR 0012's freeze applies to CLOSED days only.
+    missing = [day for day in requested if day >= today or day not in cached]
 
     computed: dict[date, DailyHeartSummary] = {}
     if missing:
@@ -421,4 +425,6 @@ async def read_daily_summary(
             )
         await _persist_days(session, tz.key, computed.values())
 
-    return DailySummaryResponse(days=[cached.get(day) or computed[day] for day in requested])
+    # Computed (fresh) rows win over the cached snapshot — open days were
+    # just recomputed and must not answer with their own stale cache entry.
+    return DailySummaryResponse(days=[computed.get(day) or cached[day] for day in requested])

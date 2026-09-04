@@ -340,3 +340,37 @@ async def test_days_param_bounds_422(
     for days in (0, -1, 121):
         response = metrics_client.get("/api/v1/metrics/daily", params={"days": days})
         assert response.status_code == 422, days
+
+async def test_open_day_refreshes_on_late_samples(
+    metrics_client: TestClient, db: AsyncSession
+) -> None:
+    """Today's cached row must NOT pin mid-accumulation values (grill
+    decision 7: emit with coverage marker + silent recompute). Closed days
+    stay frozen under ADR 0012."""
+    now = datetime.now(UTC)
+
+    def samples(tag: str, bpm: float, count: int, base: datetime) -> list[tuple[datetime, float]]:
+        # count samples each in its OWN 5-minute bucket (distinct bucket starts)
+        return [
+            (base + timedelta(minutes=5 * i, seconds=1), bpm)
+            for i in range(count)
+        ]
+
+    early = now - timedelta(hours=3)
+    await _seed_samples(db, samples("early", 60.0, 30, early))
+    await db.commit()
+
+    r1 = metrics_client.get("/api/v1/metrics/daily?days=1")
+    assert r1.status_code == 200, r1.text
+    assert r1.json()["days"][-1]["resting_hr"] == 60.0
+
+    await _seed_samples(db, samples("late", 50.0, 30, early - timedelta(minutes=1)))
+    await db.commit()
+
+    r2 = metrics_client.get("/api/v1/metrics/daily?days=1")
+    days = r2.json()["days"][-1]
+    # The 50 bpm samples now sit in the day's lowest buckets: the refreshed
+    # resting_hr must drop below the pinned 60.0 (exact value depends on the
+    # interleaving of the two seeding passes — refresh, not exact math, is
+    # the regression being pinned).
+    assert days["resting_hr"] is not None and days["resting_hr"] < 60.0, days
