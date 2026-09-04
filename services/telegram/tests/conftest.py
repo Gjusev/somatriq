@@ -49,6 +49,7 @@ async def db(migrated_db: None) -> AsyncIterator[AsyncSession]:
             text(
                 "TRUNCATE TABLE notifications.outbox, notifications.channels, "
                 "health.journal_events, "
+                "research.experiment_days, research.experiments, "
                 "timeseries.heart_rate, timeseries.rr_interval, "
                 "health.sleep_stages, health.sleep_sessions, health.daily_observations, "
                 "derived.daily_features"

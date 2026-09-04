@@ -62,3 +62,34 @@ def parse_quick_log(text: str) -> ParsedLog:
         structured=None,
         reply="Logged: journal note",
     )
+
+
+# ── /experiment (M11, spec §85, §204) ─────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class ParsedExperimentCommand:
+    """One parsed /experiment argument.
+
+    kind "list" — no argument, show the running experiments;
+    kind "checkin" — "<id> yes|no [note]" for today's compliance;
+    kind "usage" — anything else (the caller replies with the usage text).
+    """
+
+    kind: str  # "list" | "checkin" | "usage"
+    id_token: str | None
+    complied: bool | None
+    note: str | None
+
+
+def parse_experiment_argument(argument: str) -> ParsedExperimentCommand:
+    """Deterministic grammar: empty → list; `<id> yes|no [note]` → checkin."""
+    if not argument.strip():
+        return ParsedExperimentCommand("list", None, None, None)
+    parts = argument.split(maxsplit=2)
+    if len(parts) < 2 or parts[1].lower() not in ("yes", "no"):
+        return ParsedExperimentCommand("usage", None, None, None)
+    note = parts[2].strip() if len(parts) > 2 else ""
+    return ParsedExperimentCommand(
+        "checkin", parts[0], parts[1].lower() == "yes", note or None
+    )

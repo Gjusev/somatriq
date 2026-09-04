@@ -20,6 +20,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     MetaData,
     String,
@@ -528,3 +529,66 @@ class NotificationOutbox(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# ── research: N-of-1 experiments (M11, spec §83-86) ────────────────────────
+
+
+class Experiment(Base):
+    """One baseline-then-intervention experiment (spec §83-84).
+
+    The baseline window is the LAST baseline_days local days before the
+    intervention starts — the experiment begins by observing the status
+    quo; intervention days materialize one per day as they pass. ``metric``
+    is validated against the correlation catalog (correlation_data), never
+    a free-text outcome.
+    """
+
+    __tablename__ = "experiments"
+    __table_args__ = (
+        Index("ix_experiments_user_status", "user_id", "status"),
+        {"schema": "research"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity.users.id"))
+    name: Mapped[str] = mapped_column(Text)
+    hypothesis: Mapped[str] = mapped_column(Text)
+    intervention: Mapped[str] = mapped_column(Text)
+    metric: Mapped[str] = mapped_column(Text)
+    direction: Mapped[str] = mapped_column(Text)  # increase | decrease | any
+    baseline_days: Mapped[int] = mapped_column(Integer, default=14)
+    intervention_days: Mapped[int] = mapped_column(Integer, default=14)
+    status: Mapped[str] = mapped_column(Text, default="running")  # running|completed|abandoned
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ExperimentDay(Base):
+    """The compliance ledger: one row per experiment per calendar day
+    (spec §85 — adherence is never assumed). ``complied`` defaults true;
+    the check-in is how the user says "no"."""
+
+    __tablename__ = "experiment_days"
+    __table_args__ = (
+        UniqueConstraint("experiment_id", "day", name="experiment_days_experiment_day_key"),
+        {"schema": "research"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=func.gen_random_uuid()
+    )
+    experiment_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("research.experiments.id")
+    )
+    day: Mapped[date] = mapped_column(Date)
+    phase: Mapped[str] = mapped_column(Text)  # baseline | intervention
+    complied: Mapped[bool] = mapped_column(Boolean, default=True)
+    note: Mapped[str | None] = mapped_column(Text)

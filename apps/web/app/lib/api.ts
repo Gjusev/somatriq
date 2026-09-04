@@ -781,3 +781,239 @@ function parseCorrelationMatrix(raw: unknown): CorrelationMatrixResponse {
 export function fetchCorrelationMatrix(days: number): Promise<CorrelationMatrixResponse> {
   return getJson(`/api/v1/correlations/matrix?days=${days}`, false, parseCorrelationMatrix);
 }
+
+// ---------------------------------------------------------------------------
+// Experiments contract mirror (M11, somatriq_api/experiments.py — frozen
+// shapes). Reads are unauthenticated like the other metric surfaces; the
+// create write carries the account JWT. The evaluation is computed on read
+// once the experiment is completed (evaluation_version distinguishes it);
+// its verdict wording is validated on the wire — "consistent with effect",
+// never "proves" (spec §82).
+// ---------------------------------------------------------------------------
+
+export type ExperimentStatus = "running" | "completed" | "abandoned";
+
+export type ExperimentDirection = "increase" | "decrease" | "any";
+
+export type ExperimentVerdict =
+  | "inconclusive"
+  | "consistent with effect"
+  | "opposite of hypothesis";
+
+export type ExperimentPhase = "baseline" | "intervention";
+
+export type PhaseProgress = {
+  /** Days materialized through today. */
+  elapsed: number;
+  /** Configured phase length. */
+  total: number;
+};
+
+export type PhaseCompliance = {
+  complied: number;
+  /** Materialized days (elapsed), not configured days. */
+  total: number;
+};
+
+export type ExperimentEvaluation = {
+  evaluationVersion: string;
+  verdict: ExperimentVerdict;
+  nBaseline: number;
+  nIntervention: number;
+  meanBaseline: number | null;
+  meanIntervention: number | null;
+  meanDifference: number | null;
+  cohensD: number | null;
+  welchT: number | null;
+  welch_df: number | null;
+  pValue: number | null;
+  pMethod: string;
+  /** Non-complied days excluded from the comparison (spec §85 first-class). */
+  excludedNoncomplied: number;
+  caveat: string;
+};
+
+export type Experiment = {
+  id: string;
+  name: string;
+  hypothesis: string;
+  intervention: string;
+  metric: string;
+  direction: ExperimentDirection;
+  baselineDays: number;
+  interventionDays: number;
+  status: ExperimentStatus;
+  startedAt: string;
+  createdAt: string;
+  completedAt: string | null;
+  window: { firstDay: string; lastDay: string };
+  currentPhase: ExperimentPhase | null;
+  progress: { baseline: PhaseProgress; intervention: PhaseProgress };
+  compliance: { baseline: PhaseCompliance; intervention: PhaseCompliance };
+  /** Present once completed — computed live on each read. */
+  evaluation: ExperimentEvaluation | null;
+};
+
+export type ExperimentDraft = {
+  name: string;
+  hypothesis: string;
+  intervention: string;
+  metric: string;
+  direction: ExperimentDirection;
+};
+
+/** Curated outcome-metric options (mirrors MATRIX_METRICS; the server
+ * validates against the full correlation catalog). */
+export const EXPERIMENT_METRIC_OPTIONS: readonly string[] = [
+  "resting_hr",
+  "hr_mean",
+  "hr_min",
+  "hr_max",
+  "avg_hrv",
+  "recovery",
+  "strain",
+  "total_sleep_min",
+  "spo2_pct",
+  "skin_temp_dev_c",
+  "resp_rate_bpm",
+  "caffeine_count",
+];
+
+function parseExperimentStatus(value: unknown): ExperimentStatus {
+  switch (value) {
+    case "running":
+    case "completed":
+    case "abandoned":
+      return value;
+    default:
+      unexpected();
+  }
+}
+
+function parseExperimentDirection(value: unknown): ExperimentDirection {
+  switch (value) {
+    case "increase":
+    case "decrease":
+    case "any":
+      return value;
+    default:
+      unexpected();
+  }
+}
+
+function parseExperimentVerdict(value: unknown): ExperimentVerdict {
+  switch (value) {
+    case "inconclusive":
+    case "consistent with effect":
+    case "opposite of hypothesis":
+      return value;
+    default:
+      unexpected();
+  }
+}
+
+function parseExperimentPhase(value: unknown): ExperimentPhase {
+  switch (value) {
+    case "baseline":
+    case "intervention":
+      return value;
+    default:
+      unexpected();
+  }
+}
+
+function parseOptionalCounter(value: unknown): number | null {
+  const parsed = parseOptionalFinite(value);
+  return parsed === null ? null : Math.round(parsed);
+}
+
+function parsePhaseProgress(raw: unknown): PhaseProgress {
+  if (!isRecord(raw)) unexpected();
+  return { elapsed: parseRequiredCounter(raw.elapsed), total: parseRequiredCounter(raw.total) };
+}
+
+function parsePhaseCompliance(raw: unknown): PhaseCompliance {
+  if (!isRecord(raw)) unexpected();
+  return {
+    complied: parseRequiredCounter(raw.complied),
+    total: parseRequiredCounter(raw.total),
+  };
+}
+
+function parseExperimentEvaluation(raw: unknown): ExperimentEvaluation {
+  if (!isRecord(raw)) unexpected();
+  return {
+    evaluationVersion: parseString(raw.evaluation_version),
+    verdict: parseExperimentVerdict(raw.verdict),
+    nBaseline: parseRequiredCounter(raw.n_baseline),
+    nIntervention: parseRequiredCounter(raw.n_intervention),
+    meanBaseline: parseOptionalFinite(raw.mean_baseline),
+    meanIntervention: parseOptionalFinite(raw.mean_intervention),
+    meanDifference: parseOptionalFinite(raw.mean_difference),
+    cohensD: parseOptionalFinite(raw.cohens_d),
+    welchT: parseOptionalFinite(raw.welch_t),
+    welch_df: parseOptionalCounter(raw.welch_df),
+    pValue: parseOptionalFinite(raw.p_value),
+    pMethod: parseString(raw.p_method),
+    excludedNoncomplied: parseRequiredCounter(raw.excluded_noncomplied),
+    caveat: parseString(raw.caveat),
+  };
+}
+
+function parseExperiment(raw: unknown): Experiment {
+  if (!isRecord(raw)) unexpected();
+  if (!isRecord(raw.progress) || !isRecord(raw.compliance) || !isRecord(raw.window)) {
+    unexpected();
+  }
+  const window = raw.window;
+  const currentPhase =
+    raw.current_phase === null || raw.current_phase === undefined
+      ? null
+      : parseExperimentPhase(raw.current_phase);
+  return {
+    id: parseString(raw.id),
+    name: parseString(raw.name),
+    hypothesis: parseString(raw.hypothesis),
+    intervention: parseString(raw.intervention),
+    metric: parseString(raw.metric),
+    direction: parseExperimentDirection(raw.direction),
+    baselineDays: parseRequiredCounter(raw.baseline_days),
+    interventionDays: parseRequiredCounter(raw.intervention_days),
+    status: parseExperimentStatus(raw.status),
+    startedAt: parseString(raw.started_at),
+    createdAt: parseString(raw.created_at),
+    completedAt: parseNullableString(raw.completed_at ?? null),
+    window: {
+      firstDay: parseDay(window.first_day),
+      lastDay: parseDay(window.last_day),
+    },
+    currentPhase,
+    progress: {
+      baseline: parsePhaseProgress(raw.progress.baseline),
+      intervention: parsePhaseProgress(raw.progress.intervention),
+    },
+    compliance: {
+      baseline: parsePhaseCompliance(raw.compliance.baseline),
+      intervention: parsePhaseCompliance(raw.compliance.intervention),
+    },
+    evaluation:
+      raw.evaluation === null || raw.evaluation === undefined
+        ? null
+        : parseExperimentEvaluation(raw.evaluation),
+  };
+}
+
+function parseExperimentList(raw: unknown): Experiment[] {
+  if (!Array.isArray(raw)) unexpected();
+  return raw.map(parseExperiment);
+}
+
+/** GET /api/v1/experiments — every experiment, live progress + evaluation. */
+export function fetchExperiments(): Promise<Experiment[]> {
+  return getJson("/api/v1/experiments", false, parseExperimentList);
+}
+
+/** POST /api/v1/experiments — account JWT; baseline window backfilled today. */
+export function createExperiment(draft: ExperimentDraft): Promise<Experiment> {
+  return postJson("/api/v1/experiments", draft, true, parseExperiment);
+}

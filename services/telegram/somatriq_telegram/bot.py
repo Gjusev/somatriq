@@ -1,7 +1,7 @@
 """Bot command handlers + long-poll loop (spec §101-104; grill decision on
 partial data: the brief always carries markers).
 
-Command surface (M7):
+Command surface (M7 + M11):
 
 * /start — claim the owner binding. The FIRST chat writes the telegram
   notification channel for the seeded user; any DIFFERENT chat is rejected
@@ -10,6 +10,9 @@ Command surface (M7):
 * /brief — immediate morning brief over the shared TODAY assembler.
 * /status — freshness + coverage summary.
 * /log <text> — deterministic quick-log (parser.py; quantity never invented).
+* /experiment — running experiments with today's check-in state;
+  /experiment <id> yes|no [note] — today's compliance check-in (spec §85).
+  Auth is the bound chat: an unbound or different chat gets nothing.
 * /help — command list.
 
 Privacy: log lines never contain the token or chat ids at info level (spec
@@ -24,7 +27,7 @@ import logging
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -33,7 +36,12 @@ from somatriq_analytics.today_data import assemble_today
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from .parser import ParsedLog, parse_quick_log
+from .parser import (
+    ParsedExperimentCommand,
+    ParsedLog,
+    parse_experiment_argument,
+    parse_quick_log,
+)
 from .telegram_client import TelegramClient, TelegramError
 
 log = logging.getLogger("somatriq_telegram.bot")
@@ -44,8 +52,22 @@ HELP_TEXT = (
     "/brief — morning brief now\n"
     "/status — data freshness and coverage\n"
     "/log <text> — quick log (e.g. /log coffee, /log coffee 2)\n"
+    "/experiment — running experiments and today's check-in\n"
+    "/experiment <id> yes|no [note] — today's compliance check-in\n"
     "/help — this message"
 )
+
+EXPERIMENT_USAGE = (
+    "Usage:\n"
+    "/experiment — list running experiments with today's check-in\n"
+    "/experiment <id> yes|no [note] — record today's compliance\n"
+    "The <id> is the short handle shown by /experiment."
+)
+
+# Short typing handle: the first 8 hex chars of the experiment id.
+EXPERIMENT_HANDLE_LENGTH = 8
+
+_MIN_HANDLE_CHARS = 4
 
 _MAX_MESSAGE_LEN = 4000  # Telegram hard limit 4096; keep headroom
 
@@ -163,6 +185,224 @@ async def record_journal_event(
     await session.commit()
 
 
+# ── /experiment (M11, spec §85, §204) ─────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class RunningExperiment:
+    """The fields /experiment needs from research.experiments."""
+
+    id: uuid.UUID
+    name: str
+    started_at: datetime
+    baseline_days: int
+    intervention_days: int
+
+
+def experiment_handle(experiment_id: uuid.UUID) -> str:
+    """Short, typable handle (first hex chars of the id)."""
+    return experiment_id.hex[:EXPERIMENT_HANDLE_LENGTH]
+
+
+def match_experiment_handle(
+    id_token: str, experiments: list[RunningExperiment]
+) -> RunningExperiment | None:
+    """Unique prefix match (dashes ignored, >= 4 chars); None when the
+    token matches nothing or more than one running experiment."""
+    token = id_token.replace("-", "").lower()
+    if len(token) < _MIN_HANDLE_CHARS:
+        return None
+    matches = [
+        experiment
+        for experiment in experiments
+        if experiment.id.hex.startswith(token)
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def experiment_window(
+    experiment: RunningExperiment, tz: ZoneInfo
+) -> tuple[date, date, date]:
+    """(first_day, start_day, last_day) — same math as the API window."""
+    start_day = experiment.started_at.astimezone(tz).date()
+    first = start_day - timedelta(days=experiment.baseline_days - 1)
+    last = start_day + timedelta(days=experiment.intervention_days)
+    return first, start_day, last
+
+
+async def _roll_experiment_days_forward(
+    session: AsyncSession,
+    experiment: RunningExperiment,
+    today: date,
+    tz: ZoneInfo,
+) -> None:
+    """Materialize missing day rows through today (same statement the API
+    uses; kept local so the services stay decoupled)."""
+    first, start_day, last = experiment_window(experiment, tz)
+    through = min(today, last)
+    if through < first:
+        return
+    await session.execute(
+        text(
+            "INSERT INTO research.experiment_days (experiment_id, day, phase) "
+            "SELECT :experiment_id, d::date, "
+            "       CASE WHEN d::date <= :start_day THEN 'baseline' "
+            "            ELSE 'intervention' END "
+            "FROM generate_series(CAST(:first AS date), CAST(:through AS date), "
+            "     INTERVAL '1 day') AS d "
+            "ON CONFLICT (experiment_id, day) DO NOTHING"
+        ),
+        {
+            "experiment_id": experiment.id,
+            "start_day": start_day,
+            "first": first,
+            "through": through,
+        },
+    )
+    await session.commit()
+
+
+async def _running_experiments(
+    session: AsyncSession, user_id: uuid.UUID
+) -> list[RunningExperiment]:
+    result = await session.execute(
+        text(
+            "SELECT id, name, started_at, baseline_days, intervention_days "
+            "FROM research.experiments "
+            "WHERE user_id = :user_id AND status = 'running' "
+            "ORDER BY created_at, id"
+        ),
+        {"user_id": user_id},
+    )
+    return [
+        RunningExperiment(
+            id=row[0],
+            name=str(row[1]),
+            started_at=row[2],
+            baseline_days=int(row[3]),
+            intervention_days=int(row[4]),
+        )
+        for row in result.all()
+    ]
+
+
+async def _experiment_list_text(
+    session: AsyncSession, user_id: uuid.UUID, now: datetime, tz: ZoneInfo
+) -> str:
+    experiments = await _running_experiments(session, user_id)
+    if not experiments:
+        return "No running experiments."
+    today = now.astimezone(tz).date()
+    lines = ["Experiments"]
+    for experiment in experiments:
+        await _roll_experiment_days_forward(session, experiment, today, tz)
+        first, start_day, last = experiment_window(experiment, tz)
+        phase = "baseline" if today <= start_day else "intervention"
+        phase_total = (
+            experiment.baseline_days if phase == "baseline" else experiment.intervention_days
+        )
+        day_rows = await session.execute(
+            text(
+                "SELECT phase, count(*) FILTER (WHERE complied), count(*) "
+                "FROM research.experiment_days WHERE experiment_id = :id "
+                "GROUP BY phase"
+            ),
+            {"id": experiment.id},
+        )
+        complied = {str(row[0]): (int(row[1]), int(row[2])) for row in day_rows.all()}
+        today_row = await session.execute(
+            text(
+                "SELECT complied FROM research.experiment_days "
+                "WHERE experiment_id = :id AND day = :today"
+            ),
+            {"id": experiment.id, "today": today},
+        )
+        today_complied = today_row.scalar_one_or_none()
+        phase_complied, phase_total_materialized = complied.get(phase, (0, 0))
+        today_state = (
+            "not checked in yet"
+            if today_complied is None
+            else ("complied" if today_complied else "not complied")
+        )
+        lines.append(
+            f"{experiment.name} [{experiment_handle(experiment.id)}]\n"
+            f"{phase} day {phase_total_materialized}/{phase_total} · "
+            f"{phase_complied}/{phase_total_materialized} complied\n"
+            f"today: {today_state}"
+        )
+    return "\n".join(lines)
+
+
+async def _experiment_checkin(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    parsed: ParsedExperimentCommand,
+    now: datetime,
+    tz: ZoneInfo,
+) -> str:
+    assert parsed.id_token is not None and parsed.complied is not None
+    experiments = await _running_experiments(session, user_id)
+    experiment = match_experiment_handle(parsed.id_token, experiments)
+    if experiment is None:
+        lines = ["No running experiment matches that id (or it is ambiguous)."]
+        lines.extend(
+            f"{e.name} [{experiment_handle(e.id)}]" for e in experiments
+        )
+        return "\n".join(lines)
+    today = now.astimezone(tz).date()
+    first, start_day, last = experiment_window(experiment, tz)
+    if today < first or today > last:
+        return (
+            f"{experiment.name}: today is outside the experiment window — "
+            "nothing to check in."
+        )
+    phase = "baseline" if today <= start_day else "intervention"
+    await session.execute(
+        text(
+            "INSERT INTO research.experiment_days "
+            "(experiment_id, day, phase, complied, note) "
+            "VALUES (:experiment_id, :day, :phase, :complied, :note) "
+            "ON CONFLICT (experiment_id, day) DO UPDATE SET "
+            "complied = EXCLUDED.complied, note = EXCLUDED.note"
+        ),
+        {
+            "experiment_id": experiment.id,
+            "day": today,
+            "phase": phase,
+            "complied": parsed.complied,
+            "note": parsed.note,
+        },
+    )
+    await session.commit()
+    answer = "complied" if parsed.complied else "not complied"
+    suffix = f" ({parsed.note})" if parsed.note else ""
+    return f"Check-in saved: {experiment.name} — today {answer}{suffix}"
+
+
+async def _handle_experiment_command(
+    session: AsyncSession,
+    argument: str,
+    chat_id: int | str,
+    now: datetime,
+    tz: ZoneInfo,
+) -> str:
+    """/experiment — auth is the bound chat (spec §85 rapid check-ins)."""
+    user_id = await _owner_user_id(session)
+    if user_id is None:
+        return "No user account found. Initialize the server first."
+    targets = await _telegram_targets(session, user_id)
+    if not targets:
+        return "This chat is not bound yet. Use /start first."
+    if str(chat_id) not in targets:
+        return "This bot is already bound to another chat."
+    parsed = parse_experiment_argument(argument)
+    if parsed.kind == "usage":
+        return EXPERIMENT_USAGE
+    if parsed.kind == "list":
+        return await _experiment_list_text(session, user_id, now, tz)
+    return await _experiment_checkin(session, user_id, parsed, now, tz)
+
+
 # ── command handlers ──────────────────────────────────────────────────────
 
 
@@ -210,6 +450,8 @@ async def handle_command(
         parsed = parse_quick_log(argument)
         await record_journal_event(session, user_id, parsed, argument, now)
         return parsed.reply
+    if command == "experiment":
+        return await _handle_experiment_command(session, argument, chat_id, now, tz)
     if command == "help":
         return HELP_TEXT
     return "Unknown command.\n" + HELP_TEXT

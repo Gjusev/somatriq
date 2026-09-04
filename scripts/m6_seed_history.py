@@ -97,8 +97,8 @@ def seed_night(days_ago: int, rmssd_target: int, rhr_quiet: int) -> None:
 
 
 def main() -> None:
-    print("seeding 7 baseline nights (rmssd 40, rhr 55) + tonight (rmssd 50, rhr 53)")
-    for days_ago in range(7, 0, -1):
+    print("seeding baseline nights (rmssd 40, rhr 55) + tonight (rmssd 50, rhr 53)")
+    for days_ago in range(20, 0, -1):
         seed_night(days_ago, 40, 55)
     seed_night(0, 50, 53)  # tonight: better HRV, slightly lower RHR, +8.1h sleep
     print("seed complete — GET /api/v1/metrics/today should now compute recovery")
