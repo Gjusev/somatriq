@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import HeartRateCard from "./components/heart-rate-card";
+import DailyCard from "./components/daily-card";
 import DevicesCard from "./components/devices-card";
 import SiteHeader from "./components/site-header";
 
@@ -48,6 +49,7 @@ export default function HomePage() {
       </section>
 
       <HeartRateCard />
+      <DailyCard />
       <DevicesCard />
     </main>
   );

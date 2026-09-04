@@ -1053,6 +1053,16 @@ source = { editable = "packages/agent_tools" }
 name = "somatriq-analytics"
 version = "0.0.0"
 source = { editable = "packages/analytics" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "somatriq-contracts" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "somatriq-contracts", editable = "packages/contracts" },
+]
 
 [[package]]
 name = "somatriq-api"
@@ -1064,10 +1074,12 @@ dependencies = [
     { name = "fastapi" },
     { name = "pydantic" },
     { name = "pyjwt" },
+    { name = "somatriq-analytics" },
     { name = "somatriq-contracts" },
     { name = "somatriq-db" },
     { name = "somatriq-replay" },
     { name = "sqlalchemy" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
     { name = "uvicorn" },
 ]
 
@@ -1083,10 +1095,12 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pyjwt", specifier = ">=2.9" },
+    { name = "somatriq-analytics", editable = "packages/analytics" },
     { name = "somatriq-contracts", editable = "packages/contracts" },
     { name = "somatriq-db", editable = "packages/db" },
     { name = "somatriq-replay", editable = "packages/replay" },
     { name = "sqlalchemy", specifier = ">=2.0" },
+    { name = "tzdata", marker = "sys_platform == 'win32'", specifier = ">=2024.1" },
     { name = "uvicorn", specifier = ">=0.32" },
 ]
 

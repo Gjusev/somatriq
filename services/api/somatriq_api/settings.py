@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 DEFAULT_RAW_DIR = "/var/lib/somatriq/raw"
+DEFAULT_USER_TIMEZONE = "UTC"
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,7 @@ class Settings:
     ingest_token: str | None
     raw_dir: str
     secret_key: str | None
+    user_timezone: str
 
 
 @lru_cache(maxsize=1)
@@ -26,4 +28,5 @@ def get_settings() -> Settings:
         ingest_token=os.environ.get("INGEST_TOKEN") or None,
         raw_dir=os.environ.get("SOMATRIQ_RAW_DIR", DEFAULT_RAW_DIR),
         secret_key=os.environ.get("SECRET_KEY") or None,
+        user_timezone=os.environ.get("USER_TIMEZONE", DEFAULT_USER_TIMEZONE),
     )

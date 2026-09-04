@@ -3,7 +3,7 @@ name = "somatriq-analytics"
 version = "0.0.0"
 description = "Deterministic health analytics: HRV, baselines, recovery, correlations."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["pydantic>=2.9", "somatriq-contracts"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["somatriq_analytics"]

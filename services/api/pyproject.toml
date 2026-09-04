@@ -14,6 +14,9 @@ dependencies = [
     "somatriq-contracts",
     "somatriq-db",
     "somatriq-replay",
+    "somatriq-analytics",
+    # zoneinfo has no system tz database on Windows (spec §161: only real needs)
+    "tzdata>=2024.1; platform_system == 'Windows'",
 ]
 
 [dependency-groups]

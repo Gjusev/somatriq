@@ -6,10 +6,11 @@ and hashed device tokens (ADR 0015), plus the raw blob registry (ADR 0003).
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -258,5 +259,35 @@ class ReplayedObservation(Base):
     raw_batch_id: Mapped[uuid.UUID] = mapped_column(Uuid)
     source_frame_epoch_ms: Mapped[int] = mapped_column(BigInteger)
     replayed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+# ── derived (§72 daily feature store, ADR 0012/0017) ─────────────────────
+
+
+class DailyFeature(Base):
+    """One row per local day per feature_set_version (M5 heart slice).
+
+    Version-keyed so algorithm evolution writes new rows rather than mutating
+    history (ADR 0012); the day's effective timezone travels with the row
+    (ADR 0017). Not a hypertable: one row per day-version.
+    """
+
+    __tablename__ = "daily_features"
+    __table_args__ = {"schema": "derived"}
+
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    feature_set_version: Mapped[str] = mapped_column(Text, primary_key=True)
+    timezone: Mapped[str] = mapped_column(Text)
+    resting_hr: Mapped[float | None] = mapped_column(Float)
+    hr_min: Mapped[float | None] = mapped_column(Float)
+    hr_mean: Mapped[float | None] = mapped_column(Float)
+    hr_max: Mapped[float | None] = mapped_column(Float)
+    sample_count: Mapped[int] = mapped_column(Integer, default=0)
+    coverage_ratio: Mapped[float] = mapped_column(Float, default=0.0)
+    data_quality: Mapped[str] = mapped_column(Text)
+    algorithm_version: Mapped[str | None] = mapped_column(Text)
+    computed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

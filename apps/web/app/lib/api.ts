@@ -207,6 +207,80 @@ function unexpected(): never {
   throw new Error("unexpected response shape");
 }
 
+// ---------------------------------------------------------------------------
+// Daily heart summary contract mirror (M5, somatriq_contracts/daily.py)
+// ---------------------------------------------------------------------------
+
+export type DataQuality = "good" | "fair" | "poor" | "insufficient";
+
+export type DailyHeartSummary = {
+  /** "YYYY-MM-DD" — already the local day in the day's effective timezone. */
+  date: string;
+  /** The day's effective timezone (ADR 0017). */
+  timezone: string;
+  restingHr: number | null;
+  hrMin: number | null;
+  hrMean: number | null;
+  hrMax: number | null;
+  sampleCount: number;
+  /** 0..1 (wire coverage_ratio; QUALITY_GOOD = 0.50, QUALITY_FAIR = 0.25). */
+  coverageRatio: number;
+  dataQuality: DataQuality;
+  algorithmVersion: string | null;
+};
+
+export type DailySummaryResponse = {
+  featureSetVersion: string;
+  days: DailyHeartSummary[];
+};
+
+const ISO_DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseFiniteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function parseDataQuality(value: unknown): DataQuality {
+  if (
+    value === "good" ||
+    value === "fair" ||
+    value === "poor" ||
+    value === "insufficient"
+  ) {
+    return value;
+  }
+  unexpected();
+}
+
+function parseDailyHeartSummary(raw: unknown): DailyHeartSummary {
+  if (!isRecord(raw)) unexpected();
+  const date = parseString(raw.date);
+  if (!ISO_DAY_PATTERN.test(date)) unexpected();
+  const coverageRatio = parseFiniteNumber(raw.coverage_ratio);
+  if (coverageRatio === null || coverageRatio < 0 || coverageRatio > 1) unexpected();
+  const sampleCount = parseFiniteNumber(raw.sample_count);
+  return {
+    date,
+    timezone: parseString(raw.timezone),
+    restingHr: parseFiniteNumber(raw.resting_hr),
+    hrMin: parseFiniteNumber(raw.hr_min),
+    hrMean: parseFiniteNumber(raw.hr_mean),
+    hrMax: parseFiniteNumber(raw.hr_max),
+    sampleCount: sampleCount === null ? 0 : Math.round(sampleCount),
+    coverageRatio,
+    dataQuality: parseDataQuality(raw.data_quality),
+    algorithmVersion: parseNullableString(raw.algorithm_version ?? null),
+  };
+}
+
+function parseDailySummary(raw: unknown): DailySummaryResponse {
+  if (!isRecord(raw) || !Array.isArray(raw.days)) unexpected();
+  return {
+    featureSetVersion: parseString(raw.feature_set_version),
+    days: raw.days.map(parseDailyHeartSummary),
+  };
+}
+
 function parseString(value: unknown): string {
   return typeof value === "string" && value.length > 0 ? value : unexpected();
 }
@@ -339,4 +413,12 @@ export function fetchDevices(): Promise<DeviceInfo[]> {
 /** POST /api/v1/devices/{id}/revoke — 204 on success. */
 export function revokeDevice(deviceId: string): Promise<void> {
   return postVoid(`/api/v1/devices/${encodeURIComponent(deviceId)}/revoke`);
+}
+
+/**
+ * GET /api/v1/metrics/daily?days=N — unauthenticated today, like the other
+ * metric endpoints. Days are returned oldest-first, one row per local day.
+ */
+export function fetchDailySummary(days: number): Promise<DailySummaryResponse> {
+  return getJson(`/api/v1/metrics/daily?days=${days}`, false, parseDailySummary);
 }
