@@ -1,0 +1,12 @@
+# Minimal scrape config for the optional monitoring profile (spec §25, §150).
+# Services expose /metrics as they gain instrumentation (spec §146).
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: somatriq-api
+    static_configs:
+      - targets: ["somatriq_api:8000"]
+  - job_name: somatriq-mcp
+    static_configs:
+      - targets: ["somatriq_mcp:8100"]

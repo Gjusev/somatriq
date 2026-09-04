@@ -1,0 +1,208 @@
+# Somatriq — one Dokploy Docker Compose project (ADR 0007)
+#
+# Topology:
+#   single origin  https://${SOMATRIQ_HOST}/       → web
+#                  https://${SOMATRIQ_HOST}/api    → api   (FastAPI serves /api/v1/... natively — no strip)
+#                  https://${SOMATRIQ_HOST}/mcp    → mcp   (FastMCP serves under /mcp)
+#   private (no inbound route): postgres, worker, scheduler, agent, telegram,
+#   notifications, backup, migrate — all on the internal `somatriq` network.
+#
+# Migration gate: somatriq_migrate runs `alembic upgrade head` and exits;
+# every long-running service waits for it (service_completed_successfully).
+#
+# Resource guidance for a personal VPS (4-8 GB): api 256-512M, web 32M,
+# worker/scheduler 256M, agent 256M, mcp 128M, telegram/notifications 64-128M,
+# postgres 1-2G (tune later with evidence). Worker/scheduler/agent share the
+# python image with different commands — process isolation, one build.
+
+x-python-base: &python-base
+  image: somatriq-python:local
+  build:
+    context: .
+    dockerfile: services/api/Dockerfile
+  env_file: .env
+  networks: [somatriq]
+  restart: unless-stopped
+  depends_on:
+    somatriq_migrate:
+      condition: service_completed_successfully
+    somatriq_postgres:
+      condition: service_healthy
+
+x-healthcheck: &healthcheck
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 10s
+
+services:
+  somatriq_postgres:
+    build: ./infra/postgres
+    image: somatriq-postgres:local
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - somatriq_postgres_data:/var/lib/postgresql/data
+    networks: [somatriq]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      <<: *healthcheck
+    # ADR 0011: never published, never on the proxy network.
+
+  somatriq_migrate:
+    <<: *python-base
+    restart: "no"
+    command: ["alembic", "-c", "/app/database/alembic.ini", "upgrade", "head"]
+    volumes:
+      - ./database:/app/database:ro
+    depends_on:
+      somatriq_postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["NONE"]
+      disable: true
+
+  somatriq_api:
+    <<: *python-base
+    command: ["uvicorn", "somatriq_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    networks: [somatriq, dokploy]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      <<: *healthcheck
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.somatriq-api.rule=PathPrefix(`/api`)
+      - traefik.http.routers.somatriq-api.entrypoints=websecure
+      - traefik.http.routers.somatriq-api.tls.certresolver=letsencrypt
+      - traefik.http.services.somatriq-api.loadbalancer.server.port=8000
+
+  somatriq_web:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./apps/web/out:/usr/share/nginx/html:ro
+    networks: [somatriq, dokploy]
+    restart: unless-stopped
+    depends_on:
+      somatriq_migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      <<: *healthcheck
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.somatriq-web.rule=PathPrefix(`/`)
+      - traefik.http.routers.somatriq-web.entrypoints=websecure
+      - traefik.http.routers.somatriq-web.tls.certresolver=letsencrypt
+      - traefik.http.services.somatriq-web.loadbalancer.server.port=80
+
+  somatriq_mcp:
+    <<: *python-base
+    command: ["python", "-m", "somatriq_mcp.main"]
+    networks: [somatriq, dokploy]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=3)"]
+      <<: *healthcheck
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.somatriq-mcp.rule=PathPrefix(`/mcp`)
+      - traefik.http.routers.somatriq-mcp.entrypoints=websecure
+      - traefik.http.routers.somatriq-mcp.tls.certresolver=letsencrypt
+      - traefik.http.services.somatriq-mcp.loadbalancer.server.port=8100
+
+  somatriq_worker:
+    <<: *python-base
+    command: ["python", "-m", "somatriq_worker.main"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8200/health', timeout=3)"]
+      <<: *healthcheck
+
+  somatriq_scheduler:
+    <<: *python-base
+    command: ["python", "-m", "somatriq_scheduler.main"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8201/health', timeout=3)"]
+      <<: *healthcheck
+
+  somatriq_agent:
+    <<: *python-base
+    command: ["python", "-m", "somatriq_agent.main"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8202/health', timeout=3)"]
+      <<: *healthcheck
+
+  somatriq_telegram:
+    <<: *python-base
+    command: ["python", "-m", "somatriq_telegram.main"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8203/health', timeout=3)"]
+      <<: *healthcheck
+
+  somatriq_notifications:
+    <<: *python-base
+    command: ["python", "-m", "somatriq_notifications.main"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8204/health', timeout=3)"]
+      <<: *healthcheck
+
+  somatriq_ntfy:
+    image: binwiederhier/ntfy:v2.11.0
+    command: serve
+    volumes:
+      - somatriq_ntfy_data:/var/cache/ntfy
+    networks: [somatriq]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/v1/health >/dev/null || exit 1"]
+      <<: *healthcheck
+    # Public ntfy is OPTIONAL (spec §27) — uncomment to expose:
+    # networks: [somatriq, dokploy]
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.somatriq-ntfy.rule=PathPrefix(`/ntfy`)
+    #   - traefik.http.routers.somatriq-ntfy.middlewares=somatriq-ntfy-strip
+    #   - traefik.http.middlewares.somatriq-ntfy-strip.stripprefix.prefixes=/ntfy
+    #   - traefik.http.services.somatriq-ntfy.loadbalancer.server.port=80
+
+  somatriq_backup:
+    <<: *python-base
+    command: ["python", "/app/infra/backup/backup_loop.py"]
+    volumes:
+      - ./infra/backup:/app/infra/backup:ro
+      - somatriq_backup_data:/backups
+      - somatriq_raw_data:/raw:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8205/health', timeout=3)"]
+      <<: *healthcheck
+
+  # Optional observability profile (spec §25): docker compose --profile monitoring up
+  somatriq_prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles: [monitoring]
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks: [somatriq]
+    restart: unless-stopped
+
+  somatriq_grafana:
+    image: grafana/grafana:11.3.0
+    profiles: [monitoring]
+    networks: [somatriq]
+    restart: unless-stopped
+    # Grafana is infrastructure observability, NOT the user dashboard (spec §150).
+    # Access via SSH tunnel only — no traefik labels by default.
+
+volumes:
+  somatriq_postgres_data:
+  somatriq_raw_data:
+  somatriq_ntfy_data:
+  somatriq_backup_data:
+
+networks:
+  somatriq:
+    name: somatriq
+  dokploy:
+    name: dokploy-network
+    external: true
