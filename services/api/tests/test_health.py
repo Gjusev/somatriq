@@ -19,6 +19,14 @@ def test_health_is_dependency_free(client: TestClient) -> None:
     assert body["service"] == "somatriq_api"
 
 
+def test_public_api_path_matches_internal(client: TestClient) -> None:
+    """The public single-origin route /api/health mirrors /health (ADR 0007:
+    Traefik forwards /api without stripping, so FastAPI must serve the path)."""
+    for path in ("/api/health", "/api/ready"):
+        response = client.get(path)
+        assert response.status_code in (200, 503), f"{path} unexpectedly {response.status_code}"
+
+
 def test_ready_reports_missing_configuration(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
