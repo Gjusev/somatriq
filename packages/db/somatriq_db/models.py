@@ -1,7 +1,8 @@
-"""SQLAlchemy models for the M1 slice (schemas per spec §54-61).
+"""SQLAlchemy models for the M1+M2 slices (schemas per spec §54-61, §122-123).
 
 Identity keeps seed rows for the single local user, one synthetic device and
-one data source — real pairing lands with M2 (ADR 0015).
+one data source (M1); M2 adds the local account credential, pairing sessions
+and hashed device tokens (ADR 0015), plus the raw blob registry (ADR 0003).
 """
 
 import uuid
@@ -72,6 +73,92 @@ class DataSource(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+# ── identity: local account + device credentials (§122-123, ADR 0015) ───
+
+
+class AccountCredential(Base):
+    """Single local account; the password never leaves this table hashed."""
+
+    __tablename__ = "account_credentials"
+    __table_args__ = {"schema": "identity"}
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("identity.users.id"), primary_key=True
+    )
+    username: Mapped[str] = mapped_column(Text, unique=True)
+    password_hash: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PairingSession(Base):
+    """Short-lived pairing code; only its sha256 is authoritative (ADR 0015)."""
+
+    __tablename__ = "pairing_sessions"
+    __table_args__ = {"schema": "identity"}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity.users.id"))
+    code_hash: Mapped[str] = mapped_column(Text, unique=True)
+    code_hint: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, default="pending")  # pending | consumed | expired
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    device_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("identity.devices.id"))
+
+
+class DeviceToken(Base):
+    """Device credential; the token itself exists only at mint/confirm time."""
+
+    __tablename__ = "device_tokens"
+    __table_args__ = {"schema": "identity"}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=func.gen_random_uuid()
+    )
+    device_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity.devices.id"))
+    token_hash: Mapped[str] = mapped_column(Text, unique=True)
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# ── raw (§48-49, ADR 0003) ───────────────────────────────────────────────
+
+
+class RawBatch(Base):
+    """Registry row for one verbatim compressed blob on a volume."""
+
+    __tablename__ = "raw_batches"
+    __table_args__ = {"schema": "raw"}
+
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("ingest.batches.batch_id"), primary_key=True
+    )
+    device_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity.devices.id"))
+    codec: Mapped[str] = mapped_column(Text)
+    journal_version: Mapped[int] = mapped_column(Integer)
+    frame_count: Mapped[int] = mapped_column(Integer)
+    payload_sha256: Mapped[str] = mapped_column(String(64))
+    byte_size: Mapped[int] = mapped_column(BigInteger)
+    blob_path: Mapped[str] = mapped_column(Text)
+    storage_state: Mapped[str] = mapped_column(Text, default="confirmed")  # confirmed
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 # ── ingest (§56) ─────────────────────────────────────────────────────────
 
 
@@ -90,6 +177,10 @@ class IngestBatch(Base):
     records_received: Mapped[int] = mapped_column(Integer)
     records_inserted: Mapped[int] = mapped_column(Integer)
     records_duplicate: Mapped[int] = mapped_column(Integer)
+    # Raw coverage persisted with the batch so a replay acks the raw truth
+    # that was stored the first time (ADR 0003 + ADR 0006 replay semantics).
+    raw_frame_count: Mapped[int] = mapped_column(Integer, default=0)
+    raw_bytes_stored: Mapped[int] = mapped_column(BigInteger, default=0)
 
 
 class IdempotencyKey(Base):

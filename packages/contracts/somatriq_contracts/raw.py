@@ -29,7 +29,7 @@ RAW_PAYLOAD_MAX_BYTES = 8 * 1024 * 1024
 # base64 inflates by 4/3 plus padding; +16 headroom for the padding chars.
 _RAW_PAYLOAD_B64_MAX_CHARS = (RAW_PAYLOAD_MAX_BYTES // 3 + 1) * 4 + 16
 
-RAW_CODEC_ZSTD = "zstd"
+RAW_CODEC_ZSTD: Literal["zstd"] = "zstd"
 RAW_JOURNAL_VERSION = 1
 
 

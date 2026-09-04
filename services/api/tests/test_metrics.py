@@ -43,10 +43,13 @@ async def fresh_connection_pool() -> AsyncIterator[None]:
     connections on the loop that created them, while pytest-asyncio hands
     each test a fresh loop. Replacing the pool (without terminating its
     connections — that would need the dead loop) lets the db fixture open a
-    connection on the current test's own loop every time.
+    connection on the current test's own loop every time. The teardown
+    matters too: this file's last connection must not reach whatever test
+    file runs after this one.
     """
     await get_engine().dispose(close=False)
     yield
+    await get_engine().dispose(close=False)
 
 
 @pytest.fixture()

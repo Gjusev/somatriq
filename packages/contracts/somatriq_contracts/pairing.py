@@ -51,7 +51,7 @@ class RegisterRequest(BaseModel):
     @classmethod
     def _username_shape(cls, value: str) -> str:
         if not USERNAME_RE.match(value):
-            msg = "username: 3-64 chars, lowercase letters/digits/._-, not starting/ending with punctuation"
+            msg = "username: 3-64 chars, lowercase letters/digits/._-"
             raise ValueError(msg)
         return value
 

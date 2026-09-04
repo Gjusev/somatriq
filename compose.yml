@@ -70,6 +70,12 @@ services:
   somatriq_api:
     <<: *python-base
     command: ["uvicorn", "somatriq_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      SOMATRIQ_RAW_DIR: /var/lib/somatriq/raw
+    volumes:
+      # Raw frame blobs (ADR 0003, spec §48-49); backup mounts the same
+      # volume read-only at /raw.
+      - somatriq_raw_data:/var/lib/somatriq/raw
     networks: [somatriq, dokploy]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]

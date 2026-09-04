@@ -4,7 +4,10 @@ Paths are served natively under /api/v1 (ADR 0007: single origin, path-based
 routing — Traefik forwards /api without stripping).
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from somatriq_api.errors import ApiError
 
 app = FastAPI(
     title="Somatriq API",
@@ -13,6 +16,12 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
     docs_url="/api/docs",
 )
+
+
+@app.exception_handler(ApiError)
+async def api_error_handler(_: Request, exc: ApiError) -> JSONResponse:
+    """Business errors render flat (spec §157): no {"detail": …} wrapper."""
+    return JSONResponse(status_code=exc.status_code, content=exc.body.model_dump())
 
 
 @app.get("/health")
@@ -42,7 +51,11 @@ async def ready() -> dict[str, str]:
 
 
 # M1 vertical slice (spec §194): idempotent ingest + metric read.
-from somatriq_api import ingest, metrics  # noqa: E402
+# M2 (ADR 0003/0015): local account auth, device pairing, device management.
+from somatriq_api import auth, devices, ingest, metrics, pairing  # noqa: E402
 
+app.include_router(auth.router)
+app.include_router(pairing.router)
+app.include_router(devices.router)
 app.include_router(ingest.router)
 app.include_router(metrics.router)

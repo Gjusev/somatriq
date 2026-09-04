@@ -12,6 +12,7 @@ import sys
 import urllib.error
 import urllib.request
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 BASE = sys.argv[1].rstrip("/")
@@ -28,7 +29,7 @@ RECORDS = [
 ]
 
 
-def post_batch() -> dict:
+def post_batch() -> dict[str, Any]:
     payload = json.dumps({"batch_id": BATCH_ID, "schema_version": "1", "records": RECORDS}).encode()
     req = urllib.request.Request(
         BASE + "/api/v1/ingest/batches",
@@ -37,14 +38,16 @@ def post_batch() -> dict:
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=15) as res:
-        return json.loads(res.read())
+        parsed: dict[str, Any] = json.loads(res.read())
+        return parsed
 
 
-def get_metric() -> dict:
+def get_metric() -> dict[str, Any]:
     with urllib.request.urlopen(
         BASE + "/api/v1/metrics/heart_rate?last_hours=24&bucket=5m", timeout=15
     ) as res:
-        return json.loads(res.read())
+        parsed: dict[str, Any] = json.loads(res.read())
+        return parsed
 
 
 def main() -> int:

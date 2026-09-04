@@ -29,6 +29,9 @@ TEST_DATABASE_URL = os.environ.get(
 
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL  # before somatriq_db/engine import
 
+# Per-test settings: raw blobs land in the test's tmp_path and the JWT secret
+# is stable, so tests never touch /var/lib or share a stale lru_cache.
+from somatriq_api.settings import get_settings  # noqa: E402
 from somatriq_db.engine import get_session_factory  # noqa: E402
 
 
@@ -60,15 +63,49 @@ def migrated_db() -> None:
     command.upgrade(cfg, "head")
 
 
+@pytest.fixture(autouse=True)
+def raw_dir_setting(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> Iterator[Path]:
+    """Per-test SOMATRIQ_RAW_DIR (tmp) + stable SECRET_KEY, fresh settings cache."""
+    raw_dir = tmp_path / "raw"
+    monkeypatch.setenv("SOMATRIQ_RAW_DIR", str(raw_dir))
+    monkeypatch.setenv("SECRET_KEY", "test-secret")
+    get_settings.cache_clear()
+    yield raw_dir
+    get_settings.cache_clear()
+
+
 @pytest.fixture()
 async def db(migrated_db: None) -> AsyncIterator[AsyncSession]:
     factory = get_session_factory()
     # Reset before each test: failures leave no residue for the next test.
+    # Ephemeral tables are truncated (one FK-safe statement); pair-created
+    # devices/data_sources are deleted and the M1 synthetic seed re-created,
+    # because the single-user ingest fallback needs exactly one device.
     async with factory() as cleanup:
         await cleanup.execute(
             text(
                 "TRUNCATE TABLE timeseries.heart_rate, ingest.failures, "
-                "ingest.idempotency_keys, ingest.batches"
+                "ingest.idempotency_keys, ingest.batches, raw.raw_batches, "
+                "identity.device_tokens, identity.pairing_sessions, "
+                "identity.account_credentials"
+            )
+        )
+        await cleanup.execute(text("DELETE FROM identity.data_sources"))
+        await cleanup.execute(text("DELETE FROM identity.devices"))
+        await cleanup.execute(
+            text(
+                "INSERT INTO identity.devices (user_id, name, model) "
+                "SELECT id, 'synthetic-01', 'synthetic' FROM identity.users "
+                "ORDER BY created_at LIMIT 1"
+            )
+        )
+        await cleanup.execute(
+            text(
+                "INSERT INTO identity.data_sources (device_id, provider, collector) "
+                "SELECT id, 'synthetic', 'somatriq-mobile' FROM identity.devices "
+                "WHERE name = 'synthetic-01'"
             )
         )
         await cleanup.commit()
