@@ -520,6 +520,136 @@ code {
   background: color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
+/*
+ * M6 Today card. Extends the M0/M1 tokens only — no new hues, no gradients,
+ * border-radius <= 8px, 1.5rem section rhythm (spec §15-18, ADR 0014/0017).
+ * Hierarchy is typographic: the recovery score anchors the card, everything
+ * else is a quiet text row (§76 explainability, §176 quality as text). No
+ * motion beyond the existing skeleton/awaiting pulses.
+ */
+
+.today-headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.today-score {
+  margin: 0;
+  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(3rem, 12vw, 3.75rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.today-score-caption {
+  margin: 0.375rem 0 0;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.today-explain {
+  flex: 1 1 15rem;
+  min-width: 0;
+}
+
+.today-subhead {
+  margin: 0 0 0.375rem;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+/* One explainability row per input: label · value · oriented z · tone. */
+.contribution-row {
+  display: grid;
+  grid-template-columns: minmax(5rem, max-content) minmax(3.5rem, max-content) 1fr;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  padding: 0.3125rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  font-size: 0.8125rem;
+}
+
+.contribution-input {
+  color: var(--ink);
+}
+
+.contribution-value {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.contribution-detail {
+  color: var(--muted);
+  text-align: right;
+}
+
+.contribution-detail .num {
+  color: var(--ink);
+}
+
+/* Secondary stats: label left, tabular value right, hairline separators. */
+.stat-lines {
+  margin: 0.75rem 0 0;
+}
+
+.stat-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+.stat-line dt {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.stat-line dd {
+  margin: 0;
+  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.stat-line dd.stat-line-note {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Honest recovery null state: what is missing, and why it matters. */
+.missing-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.missing-list li {
+  padding: 0.25rem 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  max-width: 52ch;
+}
+
+.missing-list .num {
+  color: var(--ink);
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --ink: #e4e4e7;

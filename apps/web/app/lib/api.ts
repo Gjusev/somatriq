@@ -281,6 +281,237 @@ function parseDailySummary(raw: unknown): DailySummaryResponse {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Today contract mirror (M6, somatriq_contracts/recovery.py — frozen shapes).
+// Nulls are preserved exactly, list fields default to empty, and the
+// contribution/input literals are validated: anything else throws so the
+// Today card enters its error state instead of trusting the wire (ADR 0014).
+// ---------------------------------------------------------------------------
+
+/** Frozen algorithm ids (recovery.py); also the defaults for absent fields. */
+const RECOVERY_ALGORITHM = "somatriq_recovery_v1";
+const HRV_ALGORITHM = "somatriq_hrv_rmssd_v1";
+const HRV_FILTER_VERSION = "simple-delta400";
+
+export type RecoveryInput =
+  | "hrv"
+  | "rhr"
+  | "sleep"
+  | "temperature"
+  | "training_load";
+
+export type ContributionTone = "positive" | "negative" | "neutral";
+
+export type RecoveryContribution = {
+  input: RecoveryInput;
+  value: number | null;
+  baselineMedian: number | null;
+  baselineIqr: number | null;
+  robustZ: number | null;
+  contribution: ContributionTone;
+  note: string | null;
+};
+
+export type RecoveryResult = {
+  /** "YYYY-MM-DD" — the wake-date in the day's effective timezone. */
+  day: string;
+  /** 0..100, or null when an input is missing (never imputed, spec §76). */
+  score: number | null;
+  algorithmVersion: string;
+  contributions: RecoveryContribution[];
+  missingInputs: string[];
+  caveats: string[];
+};
+
+export type HrvSummary = {
+  day: string;
+  rmssdMs: number | null;
+  sdnnMs: number | null;
+  /** 0..1 */
+  pnn50: number | null;
+  meanRrMs: number | null;
+  samples: number;
+  validSamples: number;
+  artifactCount: number;
+  /** valid / samples, 0..1 */
+  coverage: number;
+  filterVersion: string;
+  algorithmVersion: string;
+  sessionCount: number;
+};
+
+export type SleepSummary = {
+  day: string;
+  durationMinutes: number | null;
+  /** 0..1 */
+  efficiency: number | null;
+  restingHr: number | null;
+  avgHrv: number | null;
+  sourceRecordIds: string[];
+};
+
+export type TodayResponse = {
+  date: string;
+  timezone: string;
+  recovery: RecoveryResult | null;
+  hrv: HrvSummary | null;
+  sleep: SleepSummary | null;
+  restingHr: number | null;
+  restingHrQuality: string | null;
+  /** Minutes since the newest observation. */
+  dataFreshnessMinutes: number | null;
+  caveats: string[];
+};
+
+/** Optional finite float: null/undefined preserved as null, wrong type throws. */
+function parseOptionalFinite(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = parseFiniteNumber(value);
+  return parsed === null ? unexpected() : parsed;
+}
+
+/** Integer counter with a contract default (samples etc. default to 0). */
+function parseCounter(value: unknown): number {
+  const parsed = parseOptionalFinite(value);
+  return parsed === null ? 0 : Math.round(parsed);
+}
+
+/** Required ratio 0..1 with a contract default (coverage defaults to 0.0). */
+function parseRatio(value: unknown, fallback: number): number {
+  const parsed = value === null || value === undefined ? fallback : parseFiniteNumber(value);
+  if (parsed === null || parsed < 0 || parsed > 1) unexpected();
+  return parsed;
+}
+
+/** Optional ratio 0..1 (pnn50, efficiency): null preserved, out-of-range throws. */
+function parseOptionalRatio(value: unknown): number | null {
+  const parsed = parseOptionalFinite(value);
+  if (parsed !== null && (parsed < 0 || parsed > 1)) unexpected();
+  return parsed;
+}
+
+/** Wire dates are calendar days already local to the payload timezone. */
+function parseDay(value: unknown): string {
+  const day = parseString(value);
+  if (!ISO_DAY_PATTERN.test(day)) unexpected();
+  return day;
+}
+
+/** Caveat-style lists default to empty; non-string entries are dropped. */
+function parseStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
+}
+
+function parseRecoveryInput(value: unknown): RecoveryInput {
+  switch (value) {
+    case "hrv":
+    case "rhr":
+    case "sleep":
+    case "temperature":
+    case "training_load":
+      return value;
+    default:
+      unexpected();
+  }
+}
+
+function parseContributionTone(value: unknown): ContributionTone {
+  switch (value) {
+    case "positive":
+    case "negative":
+    case "neutral":
+      return value;
+    default:
+      unexpected();
+  }
+}
+
+function parseRecoveryContribution(raw: unknown): RecoveryContribution {
+  if (!isRecord(raw)) unexpected();
+  return {
+    input: parseRecoveryInput(raw.input),
+    value: parseOptionalFinite(raw.value),
+    baselineMedian: parseOptionalFinite(raw.baseline_median),
+    baselineIqr: parseOptionalFinite(raw.baseline_iqr),
+    robustZ: parseOptionalFinite(raw.robust_z),
+    contribution: parseContributionTone(raw.contribution),
+    note: parseNullableString(raw.note ?? null),
+  };
+}
+
+function parseRecoveryResult(raw: unknown): RecoveryResult {
+  if (!isRecord(raw)) unexpected();
+  const score = parseOptionalFinite(raw.score);
+  if (score !== null && (score < 0 || score > 100)) unexpected();
+  return {
+    day: parseDay(raw.day),
+    score,
+    algorithmVersion: parseString(raw.algorithm_version ?? RECOVERY_ALGORITHM),
+    contributions: Array.isArray(raw.contributions)
+      ? raw.contributions.map(parseRecoveryContribution)
+      : [],
+    missingInputs: parseStringArray(raw.missing_inputs),
+    caveats: parseStringArray(raw.caveats),
+  };
+}
+
+function parseHrvSummary(raw: unknown): HrvSummary {
+  if (!isRecord(raw)) unexpected();
+  return {
+    day: parseDay(raw.day),
+    rmssdMs: parseOptionalFinite(raw.rmssd_ms),
+    sdnnMs: parseOptionalFinite(raw.sdnn_ms),
+    pnn50: parseOptionalRatio(raw.pnn50),
+    meanRrMs: parseOptionalFinite(raw.mean_rr_ms),
+    samples: parseCounter(raw.samples),
+    validSamples: parseCounter(raw.valid_samples),
+    artifactCount: parseCounter(raw.artifact_count),
+    coverage: parseRatio(raw.coverage, 0),
+    filterVersion: parseString(raw.filter_version ?? HRV_FILTER_VERSION),
+    algorithmVersion: parseString(raw.algorithm_version ?? HRV_ALGORITHM),
+    sessionCount: parseCounter(raw.session_count),
+  };
+}
+
+function parseSleepSummary(raw: unknown): SleepSummary {
+  if (!isRecord(raw)) unexpected();
+  return {
+    day: parseDay(raw.day),
+    durationMinutes: parseOptionalFinite(raw.duration_minutes),
+    efficiency: parseOptionalRatio(raw.efficiency),
+    restingHr: parseOptionalFinite(raw.resting_hr),
+    avgHrv: parseOptionalFinite(raw.avg_hrv),
+    sourceRecordIds: Array.isArray(raw.source_record_ids)
+      ? raw.source_record_ids.filter(
+          (entry): entry is string => typeof entry === "string",
+        )
+      : [],
+  };
+}
+
+function parseToday(raw: unknown): TodayResponse {
+  if (!isRecord(raw)) unexpected();
+  return {
+    date: parseDay(raw.date),
+    timezone: parseString(raw.timezone),
+    recovery:
+      raw.recovery === null || raw.recovery === undefined
+        ? null
+        : parseRecoveryResult(raw.recovery),
+    hrv: raw.hrv === null || raw.hrv === undefined ? null : parseHrvSummary(raw.hrv),
+    sleep:
+      raw.sleep === null || raw.sleep === undefined
+        ? null
+        : parseSleepSummary(raw.sleep),
+    restingHr: parseOptionalFinite(raw.resting_hr),
+    restingHrQuality: parseNullableString(raw.resting_hr_quality ?? null),
+    dataFreshnessMinutes: parseOptionalFinite(raw.data_freshness_minutes),
+    caveats: parseStringArray(raw.caveats),
+  };
+}
+
 function parseString(value: unknown): string {
   return typeof value === "string" && value.length > 0 ? value : unexpected();
 }
@@ -421,4 +652,13 @@ export function revokeDevice(deviceId: string): Promise<void> {
  */
 export function fetchDailySummary(days: number): Promise<DailySummaryResponse> {
   return getJson(`/api/v1/metrics/daily?days=${days}`, false, parseDailySummary);
+}
+
+/**
+ * GET /api/v1/metrics/today — unauthenticated, like the other metric
+ * endpoints. The day's recovery result and HRV/sleep summaries for the
+ * current wake-date, in the day's effective timezone (ADR 0017).
+ */
+export function fetchToday(): Promise<TodayResponse> {
+  return getJson("/api/v1/metrics/today", false, parseToday);
 }
