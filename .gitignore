@@ -31,3 +31,5 @@ Thumbs.db
 *.log
 # Typescript incremental build artifacts
 *.tsbuildinfo
+# Playwright MCP session artifacts
+.playwright-mcp/
