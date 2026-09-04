@@ -9,7 +9,10 @@ Command surface (M7 + M11):
   impossible even under races).
 * /brief — immediate morning brief over the shared TODAY assembler.
 * /status — freshness + coverage summary.
-* /log <text> — deterministic quick-log (parser.py; quantity never invented).
+* /log <text> — deterministic quick-log (parser.py; quantity never
+  invented). A §104 training line ("Chest press 180x8 170x9 160x10") is
+  intercepted before the caffeine check and stored as a training session
+  (M12; somatriq_analytics.strength) with a deterministic summary reply.
 * /experiment — running experiments with today's check-in state;
   /experiment <id> yes|no [note] — today's compliance check-in (spec §85).
   Auth is the bound chat: an unbound or different chat gets nothing.
@@ -32,6 +35,12 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from somatriq_analytics.brief import build_morning_brief
+from somatriq_analytics.strength import (
+    ParsedTraining,
+    muscle_group_for,
+    parse_training_line,
+    session_summary,
+)
 from somatriq_analytics.today_data import assemble_today
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -51,7 +60,8 @@ HELP_TEXT = (
     "/start — bind this chat to Somatriq (first chat wins)\n"
     "/brief — morning brief now\n"
     "/status — data freshness and coverage\n"
-    "/log <text> — quick log (e.g. /log coffee, /log coffee 2)\n"
+    "/log <text> — quick log (e.g. /log coffee, /log coffee 2,\n"
+    "/log Chest press 180x8 170x9 160x10)\n"
     "/experiment — running experiments and today's check-in\n"
     "/experiment <id> yes|no [note] — today's compliance check-in\n"
     "/help — this message"
@@ -183,6 +193,60 @@ async def record_journal_event(
         },
     )
     await session.commit()
+
+
+# ── /log training lines (M12, spec §104, §205) ────────────────────────────
+
+
+async def record_training_session(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    parsed: ParsedTraining,
+    raw_text: str,
+    ts: datetime,
+) -> str:
+    """Persist one parsed training session + its sets in one transaction
+    (both inserts commit together) and return the deterministic summary
+    reply (spec §104)."""
+    summary = session_summary(parsed.to_strength_sets())
+    session_id = await session.execute(
+        text(
+            "INSERT INTO health.training_sessions (user_id, source, ts, raw_text) "
+            "VALUES (:user_id, 'telegram', :ts, :raw_text) RETURNING id"
+        ),
+        {"user_id": user_id, "ts": ts, "raw_text": raw_text},
+    )
+    session_uuid = session_id.scalar_one()
+    await session.execute(
+        text(
+            "INSERT INTO health.training_sets "
+            "(session_id, exercise, muscle_group, weight_kg, reps, rir, rpe, set_index) "
+            "VALUES (:session_id, :exercise, :muscle_group, :weight_kg, :reps, "
+            "        :rir, :rpe, :set_index)"
+        ),
+        [
+            {
+                "session_id": session_uuid,
+                "exercise": parsed.exercise,
+                "muscle_group": muscle_group_for(parsed.exercise),
+                "weight_kg": one_set.weight_kg,
+                "reps": one_set.reps,
+                "rir": one_set.rir,
+                "rpe": one_set.rpe,
+                "set_index": index,
+            }
+            for index, one_set in enumerate(parsed.sets)
+        ],
+    )
+    await session.commit()
+    display = parsed.exercise.capitalize()  # stored name stays lowercase
+    if summary.tonnage_kg > 0.0 and summary.exercises:
+        best = max(summary.best_e1rm_by_exercise.values())
+        return (
+            f"{display}: {summary.set_count} sets, "
+            f"tonnage {summary.tonnage_kg:,.0f} kg, best e1RM {best:,.0f}"
+        )
+    return f"{display}: {summary.set_count} sets, bodyweight"
 
 
 # ── /experiment (M11, spec §85, §204) ─────────────────────────────────────
@@ -443,10 +507,18 @@ async def handle_command(
         return await _status_text(session, tz, now)
     if command == "log":
         if not argument:
-            return "Usage: /log <text> — e.g. /log coffee or /log coffee 2"
+            return (
+                "Usage: /log <text> — e.g. /log coffee, /log coffee 2, "
+                "/log Chest press 180x8 170x9 160x10"
+            )
         user_id = await _owner_user_id(session)
         if user_id is None:
             return "No user account found. Initialize the server first."
+        # Training lines (spec §104) are intercepted BEFORE the caffeine
+        # check: a §104 grammar match is a training session, never a note.
+        training = parse_training_line(argument)
+        if training is not None:
+            return await record_training_session(session, user_id, training, argument, now)
         parsed = parse_quick_log(argument)
         await record_journal_event(session, user_id, parsed, argument, now)
         return parsed.reply

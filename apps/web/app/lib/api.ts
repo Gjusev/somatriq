@@ -1017,3 +1017,205 @@ export function fetchExperiments(): Promise<Experiment[]> {
 export function createExperiment(draft: ExperimentDraft): Promise<Experiment> {
   return postJson("/api/v1/experiments", draft, true, parseExperiment);
 }
+
+// ---------------------------------------------------------------------------
+// Training contract mirror (M12, somatriq_api/training.py — frozen shapes).
+// Reads are unauthenticated like the other metric surfaces; the create write
+// carries the account JWT. Summaries are computed live on every read; the
+// §80 response rows carry p/p_method alongside the matrix fields, and the
+// causal-language note travels on the wire verbatim (spec §82).
+// ---------------------------------------------------------------------------
+
+export type TrainingSummary = {
+  setCount: number;
+  tonnageKg: number;
+  hardSets: number;
+  bodyweightSets: number;
+  /** Volume-weighted mean e1RM ratio; null when no weighted sets. */
+  relativeIntensity: number | null;
+  volumeByGroup: Record<string, number>;
+  bestE1rmByExercise: Record<string, number>;
+  exercises: string[];
+};
+
+export type TrainingSession = {
+  id: string;
+  ts: string;
+  source: string;
+  rawText: string | null;
+  summary: TrainingSummary;
+};
+
+export type TrainingWeek = {
+  /** ISO week label, e.g. "2026-W36". */
+  week: string;
+  tonnageKg: number;
+  hardSets: number;
+};
+
+export type TrainingSessionsResponse = {
+  days: number;
+  /** Newest first. */
+  sessions: TrainingSession[];
+  /** Oldest week first (trend order). */
+  weekly: TrainingWeek[];
+};
+
+export type TrainingSetDraft = {
+  exercise: string;
+  /** Omitted/undefined = bodyweight (no external load). */
+  weightKg?: number;
+  reps: number;
+  rir?: number;
+  rpe?: number;
+};
+
+export type TrainingResponsePairRow = {
+  pair: [string, string];
+  n: number;
+  r: number;
+  pValue: number;
+  pMethod: string;
+  band: CorrelationBand;
+  significant: boolean;
+};
+
+export type TrainingResponseSkippedRow = {
+  pair: [string, string];
+  reason: string;
+};
+
+export type TrainingResponse = {
+  days: number;
+  lagDays: number;
+  method: CorrelationMethod;
+  nTests: number;
+  bonferroniAlpha: number;
+  pairs: TrainingResponsePairRow[];
+  skipped: TrainingResponseSkippedRow[];
+  note: string;
+};
+
+function parseVolumeByGroup(raw: unknown): Record<string, number> {
+  if (!isRecord(raw)) unexpected();
+  const entries: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const parsed = parseFiniteNumber(value);
+    if (parsed === null) unexpected();
+    entries[key] = parsed;
+  }
+  return entries;
+}
+
+function parseTrainingSummary(raw: unknown): TrainingSummary {
+  if (!isRecord(raw)) unexpected();
+  return {
+    setCount: parseRequiredCounter(raw.set_count),
+    tonnageKg: parseRequiredFinite(raw.tonnage_kg),
+    hardSets: parseRequiredCounter(raw.hard_sets),
+    bodyweightSets: parseRequiredCounter(raw.bodyweight_sets),
+    relativeIntensity: parseOptionalFinite(raw.relative_intensity),
+    volumeByGroup: parseVolumeByGroup(raw.volume_by_group),
+    bestE1rmByExercise: parseVolumeByGroup(raw.best_e1rm_by_exercise),
+    exercises: parseStringArray(raw.exercises),
+  };
+}
+
+function parseTrainingSession(raw: unknown): TrainingSession {
+  if (!isRecord(raw)) unexpected();
+  return {
+    id: parseString(raw.id),
+    ts: parseString(raw.ts),
+    source: parseString(raw.source),
+    rawText: parseNullableString(raw.raw_text ?? null),
+    summary: parseTrainingSummary(raw.summary),
+  };
+}
+
+function parseTrainingWeek(raw: unknown): TrainingWeek {
+  if (!isRecord(raw)) unexpected();
+  return {
+    week: parseString(raw.week),
+    tonnageKg: parseRequiredFinite(raw.tonnage_kg),
+    hardSets: parseRequiredCounter(raw.hard_sets),
+  };
+}
+
+function parseTrainingSessions(raw: unknown): TrainingSessionsResponse {
+  if (!isRecord(raw) || !Array.isArray(raw.sessions) || !Array.isArray(raw.weekly)) {
+    unexpected();
+  }
+  return {
+    days: parseRequiredCounter(raw.days),
+    sessions: raw.sessions.map(parseTrainingSession),
+    weekly: raw.weekly.map(parseTrainingWeek),
+  };
+}
+
+function parseTrainingResponsePair(raw: unknown): TrainingResponsePairRow {
+  if (!isRecord(raw)) unexpected();
+  const r = parseRequiredFinite(raw.r);
+  if (r < -1 || r > 1) unexpected();
+  return {
+    pair: parseMetricPair(raw.pair),
+    n: parseRequiredCounter(raw.n),
+    r,
+    pValue: parseRequiredFinite(raw.p_value),
+    pMethod: parseString(raw.p_method),
+    band: parseCorrelationBand(raw.band),
+    significant: raw.significant === true,
+  };
+}
+
+function parseTrainingResponse(raw: unknown): TrainingResponse {
+  if (!isRecord(raw) || !Array.isArray(raw.pairs) || !Array.isArray(raw.skipped)) {
+    unexpected();
+  }
+  const alpha = parseRequiredFinite(raw.bonferroni_alpha);
+  if (alpha <= 0 || alpha > 1) unexpected();
+  return {
+    days: parseRequiredCounter(raw.days),
+    lagDays: parseRequiredCounter(raw.lag_days),
+    method: parseCorrelationMethod(raw.method),
+    nTests: parseRequiredCounter(raw.n_tests),
+    bonferroniAlpha: alpha,
+    pairs: raw.pairs.map(parseTrainingResponsePair),
+    skipped: raw.skipped.map(parseCorrelationSkippedRow),
+    note: parseString(raw.note),
+  };
+}
+
+/** GET /api/v1/training/sessions?days=N — live summaries + ISO-week totals. */
+export function fetchTrainingSessions(days: number): Promise<TrainingSessionsResponse> {
+  return getJson(`/api/v1/training/sessions?days=${days}`, false, parseTrainingSessions);
+}
+
+/** POST /api/v1/training/sessions — account JWT; weight omitted = bodyweight. */
+export function createTrainingSession(payload: {
+  ts?: string;
+  rawText?: string;
+  sets: TrainingSetDraft[];
+}): Promise<TrainingSession> {
+  const sets = payload.sets.map((set) => ({
+    exercise: set.exercise,
+    weight_kg: set.weightKg,
+    reps: set.reps,
+    rir: set.rir,
+    rpe: set.rpe,
+  }));
+  return postJson(
+    "/api/v1/training/sessions",
+    {
+      ts: payload.ts,
+      raw_text: payload.rawText,
+      sets,
+    },
+    true,
+    parseTrainingSession,
+  );
+}
+
+/** GET /api/v1/training/response — §80 load vs next-day recovery pairs. */
+export function fetchTrainingResponse(days: number): Promise<TrainingResponse> {
+  return getJson(`/api/v1/training/response?days=${days}`, false, parseTrainingResponse);
+}

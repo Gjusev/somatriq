@@ -19,13 +19,19 @@ observation — the same "our algorithm over the vendor's copy" stance as the
 HRV pipeline. Exposing the vendor value under its own name is a later
 slice's decision, not a silent fallback here.
 
+M12 adds two BUILDERS (not catalog names — MATRIX_METRICS stays frozen):
+the daily muscular-load series from health.training_sessions (spec §78-80)
+and the sleep-window RMSSD per wake-date, both consumed only by the §80
+personal-response surface.
+
 Everything below is deterministic SQL + Python (ADR 0009); the coefficient
 math lives in :mod:`somatriq_analytics.correlations` and is fed the
 aligned float lists this module returns.
 """
 
+import uuid
 from datetime import UTC, date, datetime, timedelta
-from typing import Final
+from typing import Final, cast
 from zoneinfo import ZoneInfo
 
 from somatriq_contracts.daily import FEATURE_SET_VERSION
@@ -34,6 +40,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from somatriq_analytics.correlations import join_lagged
+from somatriq_analytics.hrv import rmssd_stats
+from somatriq_analytics.strength import StrengthSet, session_summary
 
 # Our computed daily metrics: metric name → derived.daily_features column.
 # Fixed whitelist — column names never reach SQL from user input.
@@ -210,3 +218,131 @@ async def _journal_count_series(
         ).astimezone(UTC)},
     )
     return [(day, float(value)) for day, value in result.all()]
+
+
+# ── M12 muscular-load daily series (spec §78-80, §205) ────────────────────
+# Additive builders for the §80 personal-response read: daily tonnage /
+# hard-set counts from health.training_sessions × training_sets, and the
+# sleep-window RMSSD per wake-date (our own HRV, somatriq_hrv_rmssd_v1 —
+# the same deterministic reading the TODAY assembler performs). These are
+# NOT added to the frozen MATRIX_METRICS catalog; the §80 surface is the
+# only consumer today.
+
+TRAINING_LOAD_METRICS: Final[tuple[str, ...]] = ("training_tonnage", "training_hard_sets")
+
+# Recovery inputs paired against the load features in the §80 read.
+RESPONSE_RECOVERY_METRICS: Final[tuple[str, ...]] = ("resting_hr", "rmssd")
+
+
+async def training_load_series(
+    session: AsyncSession, metric: str, days: int, tz: ZoneInfo
+) -> list[tuple[date, float]]:
+    """One muscular-load feature per local day: tonnage (kg) or hard sets.
+
+    Days are session-local (ADR 0017) and absent-day-honest: a day without
+    training simply does not appear — the §80 lagged join then correlates
+    training days' load with next-day recovery, never zero-filled rest days
+    (spec §158). Hard sets are counted per SESSION (the hard-set fallback
+    is session-scoped) and summed into the day.
+    """
+    if metric not in TRAINING_LOAD_METRICS:
+        raise ValueError(f"unknown training-load metric {metric!r}")
+    first = _first_day(days, tz)
+    result = await session.execute(
+        text(
+            "SELECT s.id, s.ts, t.exercise, t.weight_kg, t.reps, t.rir, t.rpe "
+            "FROM health.training_sessions s "
+            "JOIN health.training_sets t ON t.session_id = s.id "
+            "WHERE s.ts >= :first_start "
+            "ORDER BY s.ts, t.exercise, t.set_index"
+        ),
+        {"first_start": datetime(
+            first.year, first.month, first.day, tzinfo=tz
+        ).astimezone(UTC)},
+    )
+    sessions: dict[uuid.UUID, tuple[date, list[StrengthSet]]] = {}
+    for row_id, row_ts, exercise, weight_kg, reps, rir, rpe in result.all():
+        day = cast("datetime", row_ts).astimezone(tz).date()
+        _, sets = sessions.setdefault(row_id, (day, []))
+        sets.append(
+            StrengthSet(
+                exercise=str(exercise),
+                weight_kg=cast("float | None", weight_kg),
+                reps=int(reps),
+                rir=cast("int | None", rir),
+                rpe=cast("float | None", rpe),
+            )
+        )
+    by_day: dict[date, float] = {}
+    for day, sets in sessions.values():
+        summary = session_summary(sets)
+        value = summary.tonnage_kg if metric == "training_tonnage" else float(summary.hard_sets)
+        by_day[day] = by_day.get(day, 0.0) + value
+    return [(day, by_day[day]) for day in sorted(by_day)]
+
+
+async def rmssd_daily_series(
+    session: AsyncSession, days: int, tz: ZoneInfo
+) -> list[tuple[date, float]]:
+    """Sleep-window RMSSD (ms) per wake-date over the last ``days`` days.
+
+    Mirrors the TODAY assembler's deterministic reading: deduped sleep
+    sessions (latest received wins per source identity), one range-bounded
+    RR pass over their windows, then one somatriq_hrv_rmssd_v1 pass per
+    wake-date over that date's concatenated RR. Dates whose RR is
+    insufficient do not appear — never zeros.
+    """
+    first = _first_day(days, tz)
+    first_end = datetime(first.year, first.month, first.day, tzinfo=tz).astimezone(UTC)
+    result = await session.execute(
+        text(
+            "SELECT DISTINCT ON (source_record_id, start_ts) "
+            "       source_record_id, start_ts, end_ts "
+            "FROM health.sleep_sessions "
+            "WHERE end_ts >= :first_end AND end_ts <= now() "
+            "ORDER BY source_record_id, start_ts, received_at DESC, device_id"
+        ),
+        {"first_end": first_end},
+    )
+    windows = [
+        (
+            cast("datetime", row[1]),
+            cast("datetime", row[2]),
+            cast("datetime", row[2]).astimezone(tz).date(),
+        )
+        for row in result.all()
+    ]
+    if not windows:
+        return []
+
+    clauses: list[str] = []
+    params: dict[str, object] = {
+        "range_start": min(w[0] for w in windows),
+        "range_end": max(w[1] for w in windows),
+    }
+    for i, (start, end, _) in enumerate(windows):
+        clauses.append(f"(ts >= :s{i} AND ts <= :e{i})")
+        params[f"s{i}"] = start
+        params[f"e{i}"] = end
+    rr_result = await session.execute(
+        text(
+            "SELECT ts, rr_ms FROM timeseries.rr_interval "
+            "WHERE ts >= :range_start AND ts <= :range_end "
+            f"AND ({' OR '.join(clauses)}) "
+            "ORDER BY ts"
+        ),
+        params,
+    )
+    rr_by_date: dict[date, list[int]] = {}
+    for row_ts, rr_ms in rr_result.all():
+        for start, end, wake in windows:
+            if start <= cast("datetime", row_ts) <= end:
+                rr_by_date.setdefault(wake, []).append(int(rr_ms))
+                break
+
+    series: list[tuple[date, float]] = []
+    for wake in sorted(rr_by_date):
+        summary = rmssd_stats(rr_by_date[wake], day=wake)
+        if summary is not None and summary.rmssd_ms is not None:
+            series.append((wake, summary.rmssd_ms))
+    return series

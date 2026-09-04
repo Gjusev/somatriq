@@ -6,6 +6,7 @@ import HeartRateCard from "./components/heart-rate-card";
 import DailyCard from "./components/daily-card";
 import CorrelationsCard from "./components/correlations-card";
 import ExperimentsCard from "./components/experiments-card";
+import TrainingCard from "./components/training-card";
 import DevicesCard from "./components/devices-card";
 import SiteHeader from "./components/site-header";
 
@@ -16,8 +17,10 @@ type ApiStatus = "checking" | "reachable" | "unreachable";
  * summaries and freshness, stated honestly — no invented numbers (spec §76).
  * Heart-rate context follows; correlations (M10) sit below the daily summary
  * as co-movement, never causation; experiments (M11) are the one surface
- * allowed to speak causally — a baseline, one change, an honest read. The
- * metric endpoints are unauthenticated today.
+ * allowed to speak causally — a baseline, one change, an honest read.
+ * Strength training (M12) adds the muscular-load layer — sessions, tonnage,
+ * and the §80 training-vs-next-day-recovery response, correlational like
+ * the matrix. The metric endpoints are unauthenticated today.
  */
 export default function HomePage() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
@@ -57,6 +60,7 @@ export default function HomePage() {
       <DailyCard />
       <CorrelationsCard />
       <ExperimentsCard />
+      <TrainingCard />
       <DevicesCard />
     </main>
   );

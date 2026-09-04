@@ -6,7 +6,8 @@ and hashed device tokens (ADR 0015), plus the raw blob registry (ADR 0003).
 M6 adds the vendor observation families under health/ (daily scores, sleep
 sessions + stages) and the timeseries.rr_interval hypertable (§41-42).
 M7 adds health.journal_events (Telegram/quick logging, §103) and the
-notifications channels + outbox (§105).
+notifications channels + outbox (§105). M12 adds health.training_sessions
++ training_sets (strength logging, §78-80, §104).
 """
 
 import uuid
@@ -592,3 +593,66 @@ class ExperimentDay(Base):
     phase: Mapped[str] = mapped_column(Text)  # baseline | intervention
     complied: Mapped[bool] = mapped_column(Boolean, default=True)
     note: Mapped[str | None] = mapped_column(Text)
+
+
+# ── health: strength training (M12, spec §78-80, §104) ────────────────────
+
+
+class TrainingSession(Base):
+    """One logged workout: source surface + verbatim raw_text provenance
+    (spec §104 — the deterministic representation is editable; the source
+    statement is kept)."""
+
+    __tablename__ = "training_sessions"
+    __table_args__ = (
+        Index("ix_training_sessions_user_ts", "user_id", "ts"),
+        {"schema": "health"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity.users.id"))
+    ts: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    source: Mapped[str] = mapped_column(Text, default="telegram")  # telegram|web|api
+    raw_text: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class TrainingSet(Base):
+    """One deterministically parsed set. ``weight_kg`` NULL means
+    BODYWEIGHT (no external load — never a guessed load); ``muscle_group``
+    is the PRIMARY group from the strength catalog ('other' when unknown)."""
+
+    __tablename__ = "training_sets"
+    __table_args__ = (
+        UniqueConstraint(
+            "session_id",
+            "exercise",
+            "set_index",
+            name="training_sets_session_exercise_set_key",
+        ),
+        Index("ix_training_sets_session", "session_id"),
+        {"schema": "health"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=func.gen_random_uuid()
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("health.training_sessions.id")
+    )
+    exercise: Mapped[str] = mapped_column(Text)
+    muscle_group: Mapped[str] = mapped_column(Text)
+    weight_kg: Mapped[float | None] = mapped_column(Float)
+    reps: Mapped[int] = mapped_column(Integer)
+    rir: Mapped[int | None] = mapped_column(Integer)
+    rpe: Mapped[float | None] = mapped_column(Float)
+    set_index: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

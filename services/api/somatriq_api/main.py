@@ -57,6 +57,7 @@ async def ready() -> dict[str, str]:
 # M8 (spec §89-94, ADR 0009): AI coach — deterministic tools + privacy chokepoint.
 # M10 (spec §81-82, §203): correlations — deterministic statistics, causal honesty.
 # M11 (spec §83-86, §204): N-of-1 experiments — baseline then intervention.
+# M12 (spec §78-80, §205): strength training — sessions, load, personal response.
 from somatriq_api import (  # noqa: E402
     admin,
     auth,
@@ -69,6 +70,7 @@ from somatriq_api import (  # noqa: E402
     observations,
     pairing,
     today,
+    training,
 )
 
 app.include_router(admin.router)
@@ -85,3 +87,4 @@ app.include_router(today.router)
 app.include_router(correlations.router)
 app.include_router(coach.router)
 app.include_router(experiments.router)
+app.include_router(training.router)
