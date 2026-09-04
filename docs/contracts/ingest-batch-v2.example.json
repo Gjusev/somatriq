@@ -1,0 +1,32 @@
+{
+  "batch_id": "018f3a2e-7c1b-7d3e-9f4a-2b6c8def0111",
+  "schema_version": "2",
+  "decoder_version": "noop-android/1.2.0+somatriq",
+  "records": [
+    {
+      "source_record_id": "hr-000001",
+      "ts": "2026-09-04T06:41:00Z",
+      "bpm": 58.0
+    },
+    {
+      "source_record_id": "hr-000002",
+      "ts": "2026-09-04T06:41:01Z",
+      "bpm": 58.5
+    },
+    {
+      "source_record_id": "hr-000003",
+      "ts": "2026-09-04T06:41:02Z",
+      "bpm": 59.0
+    }
+  ],
+  "raw": {
+    "codec": "zstd",
+    "journal_version": 1,
+    "frame_count": 3,
+    "payload_b64": "AAAAAgAAAZnGjqBgESIAAAACAAABmcaOoGEzRAAAAAIAAAGZxo6gYlVm",
+    "payload_sha256": "ae3f4c523938e5ec8bd3b897645a4777a99fc999ab53add37a393611a5a87211",
+    "uncompressed_bytes": 42,
+    "first_frame_ts": "2026-09-04T06:41:00Z",
+    "last_frame_ts": "2026-09-04T06:41:02Z"
+  }
+}

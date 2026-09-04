@@ -1,0 +1,47 @@
+### Full M2 pairing dance (run against https://somatriq.mokka-dev.de)
+
+### 0. First-run check — which wizard branch?
+GET /api/v1/auth/status
+# → { "has_account": false }
+
+### 1. Claim the local account (only while zero accounts exist)
+POST /api/v1/auth/register
+{
+  "username": "owner",
+  "password": "a-long-personal-passphrase"
+}
+# → { "access_token": "…", "token_type": "bearer", "expires_at": "…" }
+
+### 2. Login (subsequent runs)
+POST /api/v1/auth/login
+{ "username": "owner", "password": "…" }
+# → TokenResponse
+
+### 3. Web creates a pairing session (account JWT)
+POST /api/v1/pairing/sessions
+Authorization: Bearer <account JWT>
+# → { "session_id": "…", "pairing_code": "7KQ2M9XW", "expires_at": "…" }
+
+### 4. Wizard polls status
+GET /api/v1/pairing/sessions/{session_id}
+Authorization: Bearer <account JWT>
+# → { "status": "pending" | "consumed", "device": {…} }
+
+### 5. Collector exchanges the code (no auth — code possession is the proof)
+POST /api/v1/pairing/confirm
+{
+  "pairing_code": "7KQ2M9XW",
+  "device_name": "pixel-8-owner"
+}
+# → { "device_id": "…", "token": "sqt_dev_…", "token_type": "device",
+#     "scopes": ["ingest.write","device.read","sync.read"], "issued_at": "…" }
+
+### 6. Collector ingests with its device token
+POST /api/v1/ingest/batches
+Authorization: Bearer sqt_dev_…
+{ … ingest-batch-v2.example.json … }
+# → ack with "raw_ack": true  ← the ONLY prune authorization
+
+### 7. Web lists devices / revokes a lost phone
+GET /api/v1/devices
+POST /api/v1/devices/{device_id}/revoke
