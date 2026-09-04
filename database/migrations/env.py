@@ -18,8 +18,14 @@ def _database_url() -> str:
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise RuntimeError("DATABASE_URL must be set for migrations (spec §209)")
-    # Alembic runs synchronously; the asyncpg driver marker is not applicable.
-    return url.replace("postgresql+asyncpg://", "postgresql://")
+    # Alembic runs synchronously on psycopg 3; the asyncpg driver marker is not
+    # applicable. SQLAlchemy's bare "postgresql://" defaults to psycopg2, which
+    # we do not ship — pin the psycopg dialect explicitly.
+    if url.startswith("postgresql+asyncpg://"):
+        url = url.replace("postgresql+asyncpg://", "postgresql+psycopg://", 1)
+    elif url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url
 
 
 def run_migrations_offline() -> None:
