@@ -86,7 +86,9 @@ async def db(migrated_db: None) -> AsyncIterator[AsyncSession]:
     async with factory() as cleanup:
         await cleanup.execute(
             text(
-                "TRUNCATE TABLE timeseries.heart_rate, derived.daily_features, "
+                "TRUNCATE TABLE timeseries.heart_rate, timeseries.rr_interval, "
+                "health.sleep_stages, health.sleep_sessions, health.daily_observations, "
+                "derived.daily_features, "
                 "ingest.failures, ingest.idempotency_keys, ingest.batches, "
                 "raw.raw_batches, identity.device_tokens, "
                 "identity.pairing_sessions, identity.account_credentials"

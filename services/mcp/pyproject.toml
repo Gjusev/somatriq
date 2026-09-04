@@ -3,7 +3,20 @@ name = "somatriq-mcp"
 version = "0.0.0"
 description = "Somatriq health MCP server (ADR 0010: FastMCP lands with M9)"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    # Official MCP SDK 2.x — FastMCP was renamed MCPServer there; this is the
+    # "current stable official mechanism" of spec §96.
+    "mcp>=2.1",
+    "starlette>=0.40",
+    "uvicorn>=0.32",
+    "sqlalchemy>=2.0",
+    "asyncpg>=0.30",
+    "somatriq-contracts",
+    "somatriq-db",
+    "somatriq-analytics",
+    # zoneinfo has no system tz database on Windows (spec §161: only real needs)
+    "tzdata>=2024.1; platform_system == 'Windows'",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["somatriq_mcp"]

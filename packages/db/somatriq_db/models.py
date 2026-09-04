@@ -3,6 +3,8 @@
 Identity keeps seed rows for the single local user, one synthetic device and
 one data source (M1); M2 adds the local account credential, pairing sessions
 and hashed device tokens (ADR 0015), plus the raw blob registry (ADR 0003).
+M6 adds the vendor observation families under health/ (daily scores, sleep
+sessions + stages) and the timeseries.rr_interval hypertable (§41-42).
 """
 
 import uuid
@@ -10,10 +12,12 @@ from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Date,
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     MetaData,
     String,
@@ -291,3 +295,146 @@ class DailyFeature(Base):
     computed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+# ── health: vendor observations (M6, spec §41-42; ADR 0012) ──────────────
+
+
+class DailyObservation(Base):
+    """One vendor-reported metric value for one wake-date (NOOP DailyMetric).
+
+    Catalog-governed by the frozen VENDOR_DAILY_METRICS contract rather than
+    system.metrics; natural key is (user, device, day, metric).
+    """
+
+    __tablename__ = "daily_observations"
+    __table_args__ = {"schema": "health"}
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("identity.users.id"), primary_key=True
+    )
+    device_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("identity.devices.id"), primary_key=True
+    )
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    metric: Mapped[str] = mapped_column(Text, primary_key=True)
+    value: Mapped[float] = mapped_column(Float)
+    decoder_version: Mapped[str | None] = mapped_column(Text)
+    raw_batch_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class SleepSession(Base):
+    """One vendor sleep session keyed by its source record identity."""
+
+    __tablename__ = "sleep_sessions"
+    __table_args__ = {"schema": "health"}
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("identity.users.id"), primary_key=True
+    )
+    device_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("identity.devices.id"), primary_key=True
+    )
+    source_record_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    start_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    end_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    efficiency: Mapped[float | None] = mapped_column(Float)
+    resting_hr: Mapped[float | None] = mapped_column(Float)
+    avg_hrv: Mapped[float | None] = mapped_column(Float)
+    user_edited: Mapped[bool] = mapped_column(Boolean, default=False)
+    decoder_version: Mapped[str | None] = mapped_column(Text)
+    raw_batch_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class SleepStage(Base):
+    """One sleep stage inside a session; FK-held to its session's full key."""
+
+    __tablename__ = "sleep_stages"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            [
+                "session_user_id",
+                "session_device_id",
+                "session_source_record_id",
+                "session_start_ts",
+            ],
+            [
+                "health.sleep_sessions.user_id",
+                "health.sleep_sessions.device_id",
+                "health.sleep_sessions.source_record_id",
+                "health.sleep_sessions.start_ts",
+            ],
+        ),
+        {"schema": "health"},
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    session_user_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    session_device_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    session_source_record_id: Mapped[str] = mapped_column(Text)
+    session_start_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    state: Mapped[str] = mapped_column(Text)
+    stage_start_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    stage_end_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+# ── timeseries: RR intervals (M6, spec §41; ADR 0006 hypertable note) ─────
+
+
+class RrInterval(Base):
+    """One beat-to-beat interval — OUR OWN HRV source (NOOP rrInterval).
+
+    Hypertable sibling of heart_rate: the PK includes the partitioning column
+    (see the Timescale note in migration 0002/0006).
+    """
+
+    __tablename__ = "rr_interval"
+    __table_args__ = {"schema": "timeseries"}
+
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    device_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    source_record_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    rr_ms: Mapped[int] = mapped_column(Integer)
+    seq: Mapped[int] = mapped_column(BigInteger)
+    decoder_version: Mapped[str | None] = mapped_column(Text)
+    raw_batch_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+# ── identity: MCP personal access tokens (M9, spec §123; ADR 0010) ───────
+
+
+class PersonalAccessToken(Base):
+    """Scoped MCP credential; only its sha256 is authoritative (spec §123).
+
+    Default scope is health.read (spec §97 read-only connection default);
+    write/memory scopes require an explicit per-connection grant (ADR 0010).
+    """
+
+    __tablename__ = "personal_access_tokens"
+    __table_args__ = {"schema": "identity"}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity.users.id"))
+    name: Mapped[str] = mapped_column(Text)
+    token_hash: Mapped[str] = mapped_column(Text, unique=True)
+    scopes: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), server_default="ARRAY['health.read']"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
