@@ -1,0 +1,88 @@
+[project]
+name = "somatriq"
+version = "0.0.0"
+description = "Somatriq — self-hosted personal biometric intelligence platform (server monorepo root)"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.14",
+    "psycopg[binary]>=3.2",
+    # Workspace members (explicit so `uv sync` installs the full server —
+    # same command works locally, in CI, and in the Docker builder).
+    "somatriq-api",
+    "somatriq-mcp",
+    "somatriq-worker",
+    "somatriq-scheduler",
+    "somatriq-agent",
+    "somatriq-telegram",
+    "somatriq-notifications",
+    "somatriq-core",
+    "somatriq-contracts",
+    "somatriq-db",
+    "somatriq-analytics",
+    "somatriq-agent-tools",
+    "somatriq-connectors",
+    "somatriq-observability",
+]
+
+[tool.uv.sources]
+somatriq-api = { workspace = true }
+somatriq-mcp = { workspace = true }
+somatriq-worker = { workspace = true }
+somatriq-scheduler = { workspace = true }
+somatriq-agent = { workspace = true }
+somatriq-telegram = { workspace = true }
+somatriq-notifications = { workspace = true }
+somatriq-core = { workspace = true }
+somatriq-contracts = { workspace = true }
+somatriq-db = { workspace = true }
+somatriq-analytics = { workspace = true }
+somatriq-agent-tools = { workspace = true }
+somatriq-connectors = { workspace = true }
+somatriq-observability = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+]
+
+# Project-wide tooling. One type checker project-wide: mypy (spec §109).
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["services", "packages"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "T20"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+explicit_package_bases = true
+mypy_path = [
+    "services/api",
+    "services/mcp",
+    "services/worker",
+    "services/scheduler",
+    "services/agent",
+    "services/telegram",
+    "services/notifications",
+    "packages/core",
+    "packages/contracts",
+    "packages/db",
+    "packages/analytics",
+    "packages/agent_tools",
+    "packages/connectors",
+    "packages/observability",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["services", "packages", "tests"]
+asyncio_mode = "auto"
+
+[tool.uv.workspace]
+members = ["services/*", "packages/*"]

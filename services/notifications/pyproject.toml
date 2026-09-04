@@ -1,0 +1,13 @@
+[project]
+name = "somatriq-notifications"
+version = "0.0.0"
+description = "Notification engine lands M7 (anti-fatigue rules, spec section 106)."
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["somatriq_notifications"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,13 @@
+[project]
+name = "somatriq-contracts"
+version = "0.0.0"
+description = "Shared API/MCP contracts (spec 108, 111)."
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["somatriq_contracts"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

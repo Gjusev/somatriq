@@ -1,0 +1,81 @@
+/*
+ * M0 placeholder styles. Real design tokens (typography, spacing, color,
+ * semantic health states, chart palette) are a versioned deliverable in
+ * docs/design/ before M6 (spec §175, ADR 0014). Off-black on off-white only.
+ */
+
+:root {
+  color-scheme: light dark;
+  --ink: #18181b;
+  --paper: #fafafa;
+  --muted: #71717a;
+  --ok: #047857;
+  --bad: #b91c1c;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.6;
+}
+
+.shell {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+  margin: 0.25rem 0 2.5rem;
+}
+
+h2 {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin: 0 0 0.75rem;
+}
+
+.status {
+  border-top: 1px solid color-mix(in srgb, var(--ink) 15%, transparent);
+  padding-top: 1.5rem;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+code {
+  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-size: 0.875em;
+}
+
+.status-reachable { color: var(--ok); }
+.status-unreachable { color: var(--bad); }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e4e4e7;
+    --paper: #101012;
+    --muted: #a1a1aa;
+  }
+}

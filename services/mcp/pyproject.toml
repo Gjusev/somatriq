@@ -1,0 +1,13 @@
+[project]
+name = "somatriq-mcp"
+version = "0.0.0"
+description = "Somatriq health MCP server (ADR 0010: FastMCP lands with M9)"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["somatriq_mcp"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

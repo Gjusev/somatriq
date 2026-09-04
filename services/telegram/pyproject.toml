@@ -1,0 +1,13 @@
+[project]
+name = "somatriq-telegram"
+version = "0.0.0"
+description = "Telegram bot lands M7 (morning brief, journal, checkins)."
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["somatriq_telegram"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

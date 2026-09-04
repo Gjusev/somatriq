@@ -1,0 +1,13 @@
+[project]
+name = "somatriq-observability"
+version = "0.0.0"
+description = "Structured logging, /health /ready /metrics helpers (spec 146-148)."
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["somatriq_observability"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

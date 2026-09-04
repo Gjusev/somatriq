@@ -1,0 +1,13 @@
+[project]
+name = "somatriq-core"
+version = "0.0.0"
+description = "Domain model, errors (spec 157), metric catalog access."
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["somatriq_core"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

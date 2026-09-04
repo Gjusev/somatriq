@@ -1,0 +1,1 @@
+"""Somatriq Telegram service."""

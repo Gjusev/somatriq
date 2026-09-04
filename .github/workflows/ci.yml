@@ -1,0 +1,97 @@
+# Somatriq CI (spec §151). Stages land progressively with real code; every
+# listed job runs from M0 so the pipeline shape is proven early.
+
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  python-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+      - run: uv sync --dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy services packages
+      - run: uv run pytest
+
+  web-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+  migrations:
+    # Migration up/down against a real TimescaleDB image (spec §134, ADR 0002)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: timescale/timescaledb-ha:pg16-ts2.17
+        env:
+          POSTGRES_USER: somatriq
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: somatriq
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U somatriq"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://somatriq:test@localhost:5432/somatriq
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+      - run: uv sync --dev
+      - run: uv run alembic -c database/alembic.ini upgrade head
+      - run: uv run alembic -c database/alembic.ini downgrade base
+      - run: uv run alembic -c database/alembic.ini upgrade head
+
+  compose-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The dokploy-network is external in production; create a stub so
+      # `docker compose config` validates the file end to end.
+      - run: docker network create dokploy-network
+      - run: cp .env.example .env
+      - run: docker compose config -q
+      - run: docker compose --profile monitoring config -q
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f services/api/Dockerfile -t somatriq-python:ci .
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+      - run: uv sync --dev
+      - run: uv run pip-audit || true   # report-only until dependencies stabilize (spec §163)
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

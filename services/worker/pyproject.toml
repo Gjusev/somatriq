@@ -1,0 +1,13 @@
+[project]
+name = "somatriq-worker"
+version = "0.0.0"
+description = "Somatriq background job worker (durable PostgreSQL job system, spec §135)"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["somatriq_worker"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

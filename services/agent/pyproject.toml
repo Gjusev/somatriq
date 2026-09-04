@@ -1,0 +1,13 @@
+[project]
+name = "somatriq-agent"
+version = "0.0.0"
+description = "AI coach orchestrator lands M8 (ADR 0009: deterministic tools first)."
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["somatriq_agent"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

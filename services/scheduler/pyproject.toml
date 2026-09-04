@@ -1,0 +1,13 @@
+[project]
+name = "somatriq-scheduler"
+version = "0.0.0"
+description = "Scheduler creates jobs; it never performs heavy work itself (spec section 137)."
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["somatriq_scheduler"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

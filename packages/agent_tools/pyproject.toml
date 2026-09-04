@@ -1,0 +1,13 @@
+[project]
+name = "somatriq-agent-tools"
+version = "0.0.0"
+description = "Deterministic AI tools (spec 94)."
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["somatriq_agent_tools"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,13 @@
+[project]
+name = "somatriq-db"
+version = "0.0.0"
+description = "SQLAlchemy models, Alembic wiring, engine/session."
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["somatriq_db"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
