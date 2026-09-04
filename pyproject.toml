@@ -58,6 +58,9 @@ src = ["services", "packages"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "T20"]
 
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["T201"]  # CLI scripts print — that is their interface
+
 [tool.mypy]
 python_version = "3.12"
 strict = true

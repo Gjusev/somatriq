@@ -3,7 +3,9 @@ name = "somatriq-contracts"
 version = "0.0.0"
 description = "Shared API/MCP contracts (spec 108, 111)."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic>=2.9",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["somatriq_contracts"]

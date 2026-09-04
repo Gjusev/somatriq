@@ -39,3 +39,10 @@ async def ready() -> dict[str, str]:
 
         raise HTTPException(status_code=503, detail=detail)
     return {"status": "ready", "database": detail}
+
+
+# M1 vertical slice (spec §194): idempotent ingest + metric read.
+from somatriq_api import ingest, metrics  # noqa: E402
+
+app.include_router(ingest.router)
+app.include_router(metrics.router)

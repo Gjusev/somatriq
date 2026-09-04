@@ -22,6 +22,18 @@ The ingest contract is:
 
 ## Consequences
 
-- The M1 hypertable DDL is writable now: unique index on `(user_id, device_id, source_record_id)` from the first migration.
+- The M1 hypertable DDL is writable now: the per-record unique constraint ships in migration 0002 (see the implementation note below for the ts-column nuance forced by hypertables).
 - Live-stream heart rate (§183) persists through normal ingest, so websocket display dedups against the same natural key.
 - Golden fixtures for replayed batches (§153) test this contract end to end.
+
+## Implementation note (2026-09-04, migration 0002)
+
+TimescaleDB requires every unique index on a hypertable to include the
+partitioning column. The per-record constraint is therefore implemented as
+`(user_id, device_id, source_record_id, ts)` rather than the strict
+three-column natural key. Retry replays carry byte-identical records, so the
+§221 guarantee (retries must not duplicate) holds; a same-`source_record_id`
+record with a *different* timestamp would insert as a distinct row — an
+accepted deviation documented here and revisitable only with evidence
+(non-hypertable side table). The batch UUID remains the sole replay
+idempotency key either way.

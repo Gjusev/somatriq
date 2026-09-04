@@ -900,6 +900,8 @@ dependencies = [
     { name = "asyncpg" },
     { name = "fastapi" },
     { name = "pydantic" },
+    { name = "somatriq-contracts" },
+    { name = "somatriq-db" },
     { name = "sqlalchemy" },
     { name = "uvicorn" },
 ]
@@ -914,6 +916,8 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.30" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "pydantic", specifier = ">=2.9" },
+    { name = "somatriq-contracts", editable = "packages/contracts" },
+    { name = "somatriq-db", editable = "packages/db" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "uvicorn", specifier = ">=0.32" },
 ]
@@ -930,6 +934,12 @@ source = { editable = "packages/connectors" }
 name = "somatriq-contracts"
 version = "0.0.0"
 source = { editable = "packages/contracts" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.9" }]
 
 [[package]]
 name = "somatriq-core"
@@ -940,6 +950,16 @@ source = { editable = "packages/core" }
 name = "somatriq-db"
 version = "0.0.0"
 source = { editable = "packages/db" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "sqlalchemy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.30" },
+    { name = "sqlalchemy", specifier = ">=2.0" },
+]
 
 [[package]]
 name = "somatriq-mcp"

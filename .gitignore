@@ -29,3 +29,5 @@ Thumbs.db
 # Local state
 *.sqlite3
 *.log
+# Typescript incremental build artifacts
+*.tsbuildinfo

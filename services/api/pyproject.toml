@@ -9,6 +9,8 @@ dependencies = [
     "pydantic>=2.9",
     "sqlalchemy>=2.0",
     "asyncpg>=0.30",
+    "somatriq-contracts",
+    "somatriq-db",
 ]
 
 [dependency-groups]

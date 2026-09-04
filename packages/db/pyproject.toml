@@ -3,7 +3,10 @@ name = "somatriq-db"
 version = "0.0.0"
 description = "SQLAlchemy models, Alembic wiring, engine/session."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "sqlalchemy>=2.0",
+    "asyncpg>=0.30",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["somatriq_db"]

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import HeartRateCard from "./components/heart-rate-card";
 
 type ApiStatus = "checking" | "reachable" | "unreachable";
 
@@ -40,6 +41,8 @@ export default function HomePage() {
           arrives with M6, after the design system is defined.
         </p>
       </section>
+
+      <HeartRateCard />
     </main>
   );
 }
