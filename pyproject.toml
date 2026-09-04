@@ -18,6 +18,7 @@ dependencies = [
     "somatriq-core",
     "somatriq-contracts",
     "somatriq-db",
+    "somatriq-replay",
     "somatriq-analytics",
     "somatriq-agent-tools",
     "somatriq-connectors",
@@ -35,6 +36,7 @@ somatriq-notifications = { workspace = true }
 somatriq-core = { workspace = true }
 somatriq-contracts = { workspace = true }
 somatriq-db = { workspace = true }
+somatriq-replay = { workspace = true }
 somatriq-analytics = { workspace = true }
 somatriq-agent-tools = { workspace = true }
 somatriq-connectors = { workspace = true }
@@ -77,6 +79,7 @@ mypy_path = [
     "packages/core",
     "packages/contracts",
     "packages/db",
+    "packages/replay",
     "packages/analytics",
     "packages/agent_tools",
     "packages/connectors",

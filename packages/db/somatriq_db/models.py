@@ -237,3 +237,26 @@ class Metric(Base):
     valid_max: Mapped[float | None] = mapped_column(Float)
     expected_cadence_seconds: Mapped[int | None] = mapped_column(Integer)
     valid_aggregations: Mapped[list[str]] = mapped_column(ARRAY(Text))
+
+
+class ReplayedObservation(Base):
+    """Parallel decoder-version output of replay reprocessing (ADR 0012).
+
+    The live heart_rate hypertable is the ingest-time interpretation and is
+    never rewritten; replay writes here keyed by decoder_version.
+    """
+
+    __tablename__ = "replayed_observations"
+    __table_args__ = {"schema": "timeseries"}
+
+    decoder_version: Mapped[str] = mapped_column(Text, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    device_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    source_record_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    bpm: Mapped[float] = mapped_column(Float)
+    raw_batch_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    source_frame_epoch_ms: Mapped[int] = mapped_column(BigInteger)
+    replayed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

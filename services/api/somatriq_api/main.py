@@ -52,8 +52,9 @@ async def ready() -> dict[str, str]:
 
 # M1 vertical slice (spec §194): idempotent ingest + metric read.
 # M2 (ADR 0003/0015): local account auth, device pairing, device management.
-from somatriq_api import auth, devices, ingest, metrics, pairing  # noqa: E402
+from somatriq_api import admin, auth, devices, ingest, metrics, pairing  # noqa: E402
 
+app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(pairing.router)
 app.include_router(devices.router)

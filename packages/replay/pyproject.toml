@@ -1,26 +1,20 @@
 [project]
-name = "somatriq-api"
+name = "somatriq-replay"
 version = "0.0.0"
-description = "Somatriq HTTP API (FastAPI)"
+description = "Raw archive replay: journal decode, fidelity verification, versioned reprocessing (spec §47-49, §140; ADR 0003/0012)"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115",
-    "uvicorn>=0.32",
     "pydantic>=2.9",
     "sqlalchemy>=2.0",
     "asyncpg>=0.30",
-    "argon2-cffi>=23",
-    "pyjwt>=2.9",
+    "psycopg[binary]>=3.2",
+    "zstandard>=0.23",
     "somatriq-contracts",
     "somatriq-db",
-    "somatriq-replay",
 ]
 
-[dependency-groups]
-dev = ["httpx>=0.27"]
-
 [tool.hatch.build.targets.wheel]
-packages = ["somatriq_api"]
+packages = ["somatriq_replay"]
 
 [build-system]
 requires = ["hatchling"]
