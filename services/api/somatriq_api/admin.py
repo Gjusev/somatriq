@@ -4,18 +4,21 @@ Account-JWT only (owner operations; ADR 0015 — device tokens carry
 ingest.write and can never reach these routes).
 """
 
-from datetime import datetime
-from typing import Annotated
+from datetime import UTC, datetime, timedelta
+from typing import Annotated, cast
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
+from somatriq_contracts.daily import FEATURE_SET_VERSION
 from somatriq_contracts.errors import ErrorCode
 from somatriq_db.engine import get_session
 from somatriq_replay.decode import WHOOP4_REALTIME_HR_V1, Whoop4RealtimeHrDecoder
 from somatriq_replay.journal import JournalError
 from somatriq_replay.pipeline import BatchNotFound, replay_batch, verify_batch
 from somatriq_replay.registry import list_batches
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from somatriq_api.accounts import AccountJwtDep
@@ -126,3 +129,39 @@ async def replay_raw_batch(
 
 # Decoder registry (§140 reprocessing selects by algorithm version).
 DECODERS = {WHOOP4_REALTIME_HR_V1: Whoop4RealtimeHrDecoder}
+
+
+class RecomputeView(BaseModel):
+    invalidated_days: int
+    note: str
+
+
+@router.post("/recompute/daily", response_model=RecomputeView)
+async def recompute_daily(
+    days: Annotated[int, Query(ge=1, le=366)] = 14,
+    session: SessionDep = None,  # type: ignore[assignment]
+    _: AccountJwtDep = None,  # type: ignore[assignment]
+) -> RecomputeView:
+    """§140 bounded reprocessing: drop the cached daily_features rows for the
+    last `days` local days (this feature_set_version only). The next
+    /metrics/daily read materializes them fresh from the hypertable — used
+    when a closed day was cached before its data arrived (late backfill,
+    timezone change, or an ingest replay). New feature_set_versions are
+    never touched: those coexist per ADR 0012.
+    """
+    tz = ZoneInfo(get_settings().user_timezone)
+    today = datetime.now(UTC).astimezone(tz).date()
+    first = today - timedelta(days=days - 1)
+    result = await session.execute(
+        text(
+            "DELETE FROM derived.daily_features "
+            "WHERE feature_set_version = :fsv AND date BETWEEN :first AND :last"
+        ),
+        {"fsv": FEATURE_SET_VERSION, "first": first, "last": today},
+    )
+    invalidated = cast(int, getattr(result, "rowcount", 0) or 0)
+    await session.commit()
+    return RecomputeView(
+        invalidated_days=invalidated,
+        note="rows dropped; the next /metrics/daily read recomputes them",
+    )
