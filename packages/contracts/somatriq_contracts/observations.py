@@ -20,7 +20,9 @@ from somatriq_contracts.ingest import IngestAck
 
 # ── vendor daily observations (NOOP dailyMetric; wake-date `day`) ────────
 
-# wire metric names → NOOP column (documented for the collector mirror)
+# wire metric names → NOOP column (documented for the collector mirror).
+# weight_kg / body_fat_percent have NO NOOP column: they arrive via the CSV
+# connector (§129 imports, e.g. a Withings scale export) — additive M13.
 VENDOR_DAILY_METRICS: dict[str, str] = {
     "total_sleep_min": "totalSleepMin",
     "efficiency": "efficiency",
@@ -40,6 +42,8 @@ VENDOR_DAILY_METRICS: dict[str, str] = {
     "active_kcal_est": "activeKcalEst",
     "avg_sdnn": "avgSdnn",
     "skin_temp_c": "skinTempC",
+    "weight_kg": "—",
+    "body_fat_percent": "—",
 }
 
 
