@@ -15,6 +15,22 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 FROM python:3.12-slim
 WORKDIR /app
+# pg_dump/pg_restore in every python-service container (backup service, ADR
+# 0016). Same major as the server (timescale/timescaledb-ha:pg16) — pg_dump
+# refuses to dump a newer-major server, and Debian main ships a different
+# major, so the client comes from the upstream PGDG repo. Fetch tools are
+# purged again; only postgresql-client-16 (+ its libs) remain.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl; \
+    install -d /usr/share/postgresql-common/pgdg; \
+    curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc; \
+    echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo "$VERSION_CODENAME")-pgdg main" > /etc/apt/sources.list.d/pgdg.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends postgresql-client-16; \
+    apt-get purge -y curl; \
+    apt-get autoremove -y; \
+    rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/.venv /app/.venv
 COPY services/ /app/services/
 COPY packages/ /app/packages/

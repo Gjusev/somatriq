@@ -439,6 +439,13 @@ code {
   font-size: 0.8125rem;
 }
 
+/* Account section (devices card): passphrase rotation. The collapsed toggle
+ * takes the card rhythm's top margin; the open form is .card-form (defined
+ * with the experiments form) — same divider, same field rows. */
+.account-toggle {
+  margin-top: 1.5rem;
+}
+
 /*
  * M5 daily heart summary. Extends the M0/M1 tokens only — no new hues, no
  * gradients, border-radius <= 8px, 1.5rem section rhythm (spec §15-18, ADR
@@ -859,8 +866,10 @@ code {
   max-width: 56ch;
 }
 
-/* Create form: the shared .field rows plus a metric/direction pair. */
-.exp-form {
+/* Card-embedded forms (experiments create, account passphrase rotation):
+ * the shared .field rows plus the section divider. */
+.exp-form,
+.card-form {
   display: grid;
   gap: 1.125rem;
   max-width: 24rem;

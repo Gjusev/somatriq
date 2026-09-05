@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchDevices, revokeDevice } from "../lib/api";
+import { ApiError, changePassphrase, fetchDevices, revokeDevice } from "../lib/api";
 import type { DeviceInfo } from "../lib/api";
 import { useSession } from "../lib/auth";
+
+const PASSPHRASE_MIN = 12;
 
 function formatRelative(iso: string, now: number): string {
   const then = Date.parse(iso);
@@ -114,6 +116,154 @@ function DeviceRow({ device, now }: { device: DeviceInfo; now: number }) {
 }
 
 /**
+ * Account passphrase rotation (POST /api/v1/auth/change-password). Lives in
+ * the devices card — the account surface — but touches no device state:
+ * paired devices and their tokens are independent credentials and keep
+ * working (ADR 0015), which the success message states plainly. A 401 with
+ * INVALID_CREDENTIALS is a wrong current passphrase (shown inline); only a
+ * session-level 401 signs out.
+ */
+function ChangePassphrase() {
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<ApiError | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const change = useMutation({
+    mutationFn: () => changePassphrase(current, next),
+    onSuccess: () => {
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+      setFieldError(null);
+      setApiError(null);
+      setSaved(true);
+    },
+    onError: (err: Error) => {
+      setSaved(false);
+      if (err instanceof ApiError) {
+        setApiError(err);
+      } else {
+        setFieldError("Could not reach the server. Check that the Somatriq API is running.");
+      }
+    },
+  });
+
+  const close = () => {
+    setOpen(false);
+    setCurrent("");
+    setNext("");
+    setConfirm("");
+    setFieldError(null);
+    setApiError(null);
+    setSaved(false);
+  };
+
+  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaved(false);
+    setFieldError(null);
+    setApiError(null);
+    if (current.length === 0) {
+      setFieldError("Enter your current passphrase.");
+      return;
+    }
+    if (next.length < PASSPHRASE_MIN) {
+      setFieldError(`New passphrase must be at least ${PASSPHRASE_MIN} characters.`);
+      return;
+    }
+    if (next !== confirm) {
+      setFieldError("New passphrases do not match.");
+      return;
+    }
+    change.mutate();
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="btn btn-small account-toggle"
+        onClick={() => setOpen(true)}
+      >
+        Change passphrase
+      </button>
+    );
+  }
+
+  return (
+    <form className="card-form" onSubmit={submit} noValidate>
+      <div className="field">
+        <label htmlFor="pass-current">Current passphrase</label>
+        <input
+          id="pass-current"
+          name="current"
+          type="password"
+          autoComplete="current-password"
+          value={current}
+          onChange={(event) => setCurrent(event.target.value)}
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="pass-new">New passphrase</label>
+        <input
+          id="pass-new"
+          name="new"
+          type="password"
+          autoComplete="new-password"
+          minLength={PASSPHRASE_MIN}
+          value={next}
+          onChange={(event) => setNext(event.target.value)}
+        />
+        <p className="field-hint">At least {PASSPHRASE_MIN} characters.</p>
+      </div>
+      <div className="field">
+        <label htmlFor="pass-confirm">Confirm new passphrase</label>
+        <input
+          id="pass-confirm"
+          name="confirm"
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(event) => setConfirm(event.target.value)}
+        />
+      </div>
+      {fieldError !== null && (
+        <p className="form-error" role="alert">
+          {fieldError}
+        </p>
+      )}
+      {apiError !== null && (
+        <p className="form-error" role="alert">
+          {apiError.errorCode !== null && (
+            <>
+              <span className="error-code">{apiError.errorCode}</span> —{" "}
+            </>
+          )}
+          {apiError.message}
+        </p>
+      )}
+      {saved && (
+        <p className="field-hint" role="status">
+          Passphrase changed. Your session and paired devices keep working.
+        </p>
+      )}
+      <div className="form-actions">
+        <button type="submit" className="btn btn-small" disabled={change.isPending}>
+          {change.isPending ? "Saving…" : "Save new passphrase"}
+        </button>
+        <button type="button" className="btn btn-small" onClick={close} disabled={change.isPending}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
  * Device roster (GET /api/v1/devices, account JWT). Handles its own auth
  * states: sign-in prompt when no token, quiet skeleton while the session
  * settles, empty state pointing at /pairing. The data cards follow the same
@@ -192,6 +342,8 @@ export default function DevicesCard() {
           ))}
         </ul>
       )}
+
+      {ready && token !== null && <ChangePassphrase />}
     </section>
   );
 }

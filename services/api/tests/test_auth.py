@@ -24,6 +24,7 @@ requires_db = cast("Callable[[_F], _F]", _untyped_requires_db)
 STATUS = "/api/v1/auth/status"
 REGISTER = "/api/v1/auth/register"
 LOGIN = "/api/v1/auth/login"
+CHANGE_PASSWORD = "/api/v1/auth/change-password"
 DEVICES = "/api/v1/devices"
 
 
@@ -143,6 +144,82 @@ async def test_expired_jwt_rejected(api: httpx.AsyncClient) -> None:
     )
     response = await api.get(DEVICES, headers=_auth(expired))
     assert response.status_code == 401
+
+
+@requires_db
+async def test_change_password_happy_path(api: httpx.AsyncClient) -> None:
+    """Old passphrase stops working, new one signs in, live JWTs stay valid."""
+    token = await _register(api, password="correct-horse-battery")
+
+    changed = await api.post(
+        CHANGE_PASSWORD,
+        headers=_auth(token["access_token"]),
+        json={
+            "current_password": "correct-horse-battery",
+            "new_password": "staple-hummingbird-42",
+        },
+    )
+    assert changed.status_code == 204
+
+    old_login = await api.post(
+        LOGIN, json={"username": "local", "password": "correct-horse-battery"}
+    )
+    assert old_login.status_code == 401
+
+    new_login = await api.post(
+        LOGIN, json={"username": "local", "password": "staple-hummingbird-42"}
+    )
+    assert new_login.status_code == 200
+    assert new_login.json()["access_token"]
+
+    # Session JWTs are independent of the passphrase (ADR 0015): the one
+    # minted before the change keeps authorizing web surfaces.
+    assert (await api.get(DEVICES, headers=_auth(token["access_token"]))).status_code == 200
+
+
+@requires_db
+async def test_change_password_wrong_current_401(api: httpx.AsyncClient) -> None:
+    token = await _register(api, password="correct-horse-battery")
+    response = await api.post(
+        CHANGE_PASSWORD,
+        headers=_auth(token["access_token"]),
+        json={
+            "current_password": "wrong-password-entirely",
+            "new_password": "staple-hummingbird-42",
+        },
+    )
+    assert response.status_code == 401
+    assert response.json()["error_code"] == "INVALID_CREDENTIALS"
+    # Nothing changed: the original passphrase still signs in.
+    again = await api.post(
+        LOGIN, json={"username": "local", "password": "correct-horse-battery"}
+    )
+    assert again.status_code == 200
+
+
+@requires_db
+async def test_change_password_short_new_422(api: httpx.AsyncClient) -> None:
+    token = await _register(api, password="correct-horse-battery")
+    response = await api.post(
+        CHANGE_PASSWORD,
+        headers=_auth(token["access_token"]),
+        json={"current_password": "correct-horse-battery", "new_password": "short"},
+    )
+    assert response.status_code == 422
+
+
+@requires_db
+async def test_change_password_requires_account_jwt(api: httpx.AsyncClient) -> None:
+    await _register(api, password="correct-horse-battery")
+    response = await api.post(
+        CHANGE_PASSWORD,
+        json={
+            "current_password": "correct-horse-battery",
+            "new_password": "staple-hummingbird-42",
+        },
+    )
+    assert response.status_code == 401
+    assert response.json()["error_code"] == "AUTHENTICATION"
 
 
 def test_jwt_secret_production_guard(monkeypatch: pytest.MonkeyPatch) -> None:

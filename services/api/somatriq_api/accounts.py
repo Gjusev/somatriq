@@ -181,6 +181,30 @@ async def authenticate(
     return credential
 
 
+async def change_password(
+    session: AsyncSession, user_id: uuid.UUID, current_password: str, new_password: str
+) -> bool:
+    """Rotate the account passphrase; False when the current one mismatches.
+
+    Device tokens and MCP PATs stay valid: they are independent random
+    secrets stored hashed (ADR 0015, ADR 0010), never derived from the
+    passphrase — rotating them is the separate, revocation-based path
+    (revoke the device/PAT, then re-pair), so a passphrase change never
+    silently disconnects collectors mid-stream.
+    """
+    credential = (
+        await session.execute(
+            select(AccountCredential).where(AccountCredential.user_id == user_id)
+        )
+    ).scalar_one_or_none()
+    if credential is None or not verify_password(credential.password_hash, current_password):
+        return False
+    credential.password_hash = hash_password(new_password)
+    await session.commit()
+    logger.info("account password changed: user_id=%s", user_id)
+    return True
+
+
 # ── pairing sessions (§43, ADR 0015) ────────────────────────────────────
 
 
@@ -349,6 +373,7 @@ __all__ = [
     "PairingCodeInvalid",
     "account_exists",
     "authenticate",
+    "change_password",
     "confirm_pairing",
     "create_access_token",
     "create_pairing_session",

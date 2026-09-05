@@ -626,6 +626,45 @@ export function loginAccount(username: string, password: string): Promise<TokenR
   return postJson("/api/v1/auth/login", { username, password }, false, parseTokenResponse);
 }
 
+/**
+ * POST /api/v1/auth/change-password — 204 on success. Deliberately NOT
+ * authFetch: a 401 here can be a business error ("wrong current passphrase",
+ * error_code INVALID_CREDENTIALS) with a perfectly live session, so it must
+ * surface inline instead of clearing the token and bouncing to /login. Only
+ * a non-INVALID_CREDENTIALS 401 means the session itself is dead and takes
+ * the authFetch sign-out path.
+ */
+export async function changePassphrase(
+  currentPassphrase: string,
+  newPassphrase: string,
+): Promise<void> {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  const token = getStoredToken();
+  if (token !== null) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  const res = await fetch("/api/v1/auth/change-password", {
+    method: "POST",
+    credentials: "same-origin",
+    headers,
+    body: JSON.stringify({
+      current_password: currentPassphrase,
+      new_password: newPassphrase,
+    }),
+  });
+  if (res.ok) {
+    await res.text().catch(() => undefined);
+    return;
+  }
+  const error = await toApiError(res);
+  if (res.status === 401 && error.errorCode !== "INVALID_CREDENTIALS") {
+    clearStoredToken();
+    window.location.assign("/login/");
+    throw new ApiError(401, null, "session expired");
+  }
+  throw error;
+}
+
 /** POST /api/v1/pairing/sessions — the full code is returned exactly once. */
 export function createPairingSession(): Promise<PairingSessionResponse> {
   return postJson("/api/v1/pairing/sessions", {}, true, parsePairingSession);
