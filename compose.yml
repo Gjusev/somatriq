@@ -46,7 +46,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - somatriq_postgres_data:/var/lib/postgresql/data
+      # timescaledb-ha keeps its cluster at /home/postgres/pgdata/data (it
+      # runs as user postgres) — mounting /var/lib/postgresql/data mounts
+      # NOTHING and every container recreate silently wipes the database in
+      # the writable layer. Incident 2026-09-05; this path matches the
+      # image's documented volume usage.
+      - somatriq_postgres_data:/home/postgres/pgdata
     networks: [somatriq]
     restart: unless-stopped
     healthcheck:
