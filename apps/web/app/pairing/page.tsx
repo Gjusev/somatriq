@@ -101,7 +101,7 @@ export default function PairingPage() {
           <p className="state-message">
             The server no longer knows this pairing session{pollError instanceof ApiError ? ` — ${pollError.message}` : ""}.
           </p>
-          <button type="button" className="btn" onClick={startNewSession}>
+          <button type="button" className="btn btn-primary" onClick={startNewSession}>
             Create a new session
           </button>
         </div>
@@ -142,7 +142,7 @@ export default function PairingPage() {
           <p className="state-message">
             The pairing code expired — codes are valid for 10 minutes and single use.
           </p>
-          <button type="button" className="btn" onClick={startNewSession}>
+          <button type="button" className="btn btn-primary" onClick={startNewSession}>
             Create a new session
           </button>
         </div>

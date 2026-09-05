@@ -10,6 +10,7 @@ import type {
 } from "echarts";
 import { fetchDailySummary } from "../lib/api";
 import { useSession } from "../lib/auth";
+import { readChartPalette, useColorSchemeVersion } from "../lib/chart-palette";
 import type { DailyHeartSummary } from "../lib/api";
 
 const MONO = 'ui-monospace, "Cascadia Mono", monospace';
@@ -23,31 +24,6 @@ const DEFAULT_RANGE = 14;
 const NO_ESTIMATE_HINT =
   "A resting estimate needs a quieter, better-covered day to appear.";
 
-/** Bump a counter when the color scheme flips so the chart re-reads the CSS tokens. */
-function useColorSchemeVersion(): number {
-  const [version, setVersion] = useState(0);
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => setVersion((n) => n + 1);
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, []);
-  return version;
-}
-
-/** Read palette values from the existing CSS tokens so light/dark stay in sync. */
-function readPalette(): { ink: string; muted: string; paper: string } {
-  if (typeof window === "undefined") {
-    // Static prerender: echarts never renders on the server, fallbacks only.
-    return { ink: "#18181b", muted: "#71717a", paper: "#fafafa" };
-  }
-  const styles = getComputedStyle(document.documentElement);
-  return {
-    ink: styles.getPropertyValue("--ink").trim() || "#18181b",
-    muted: styles.getPropertyValue("--muted").trim() || "#71717a",
-    paper: styles.getPropertyValue("--paper").trim() || "#fafafa",
-  };
-}
 
 const ISO_DAY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -93,7 +69,7 @@ function formatBpm(value: number | null): string {
 }
 
 function buildChartOption(
-  palette: { ink: string; muted: string; paper: string },
+  palette: { ink: string; muted: string; paper: string; accent: string },
   days: DailyHeartSummary[],
   yMin: number,
   yMax: number,
@@ -172,9 +148,9 @@ function buildChartOption(
         symbol: "circle",
         symbolSize: 4,
         connectNulls: false,
-        lineStyle: { width: 1.5, color: palette.ink },
-        itemStyle: { color: palette.ink },
-        areaStyle: { color: palette.ink, opacity: 0.08 },
+        lineStyle: { width: 1.5, color: palette.accent },
+        itemStyle: { color: palette.accent },
+        areaStyle: { color: palette.accent, opacity: 0.1 },
       },
     ],
   };
@@ -184,7 +160,7 @@ export default function DailyCard() {
   const { ready, token } = useSession();
   const [range, setRange] = useState<number>(DEFAULT_RANGE);
   const schemeVersion = useColorSchemeVersion();
-  const palette = useMemo(readPalette, [schemeVersion]);
+  const palette = useMemo(readChartPalette, [schemeVersion]);
 
   const query = useQuery({
     queryKey: ["metrics", "daily", { days: range }],

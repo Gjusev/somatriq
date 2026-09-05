@@ -182,7 +182,7 @@ export default function LoginPage() {
             )}
 
             <div className="form-actions">
-              <button type="submit" className="btn" disabled={pending}>
+              <button type="submit" className="btn btn-primary" disabled={pending}>
                 {pending ? "Working…" : isClaim ? "Create account" : "Sign in"}
               </button>
             </div>

@@ -252,7 +252,7 @@ function ChangePassphrase() {
         </p>
       )}
       <div className="form-actions">
-        <button type="submit" className="btn btn-small" disabled={change.isPending}>
+        <button type="submit" className="btn btn-small btn-primary" disabled={change.isPending}>
           {change.isPending ? "Saving…" : "Save new passphrase"}
         </button>
         <button type="button" className="btn btn-small" onClick={close} disabled={change.isPending}>

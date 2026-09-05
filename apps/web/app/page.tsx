@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import TodayCard from "./components/today-card";
 import HeartRateCard from "./components/heart-rate-card";
 import DailyCard from "./components/daily-card";
@@ -10,8 +9,6 @@ import TrainingCard from "./components/training-card";
 import DevicesCard from "./components/devices-card";
 import DataCard from "./components/data-card";
 import SiteHeader from "./components/site-header";
-
-type ApiStatus = "checking" | "reachable" | "unreachable";
 
 /**
  * The home feed. The Today card (M6) anchors the day: recovery, last night's
@@ -24,36 +21,15 @@ type ApiStatus = "checking" | "reachable" | "unreachable";
  * the matrix. The Data card (M13) closes the loop on ownership — CSV import
  * preview-first (§129) and full exports (§130), login-gated like devices.
  * Every data card is login-gated (spec §122): health reads answer the
- * owner's session only; the health-status fetch above stays public.
+ * owner's session only. The header carries the API-health dot and the theme
+ * picker (design pass v2); the visible masthead is gone — the dashboard
+ * starts at Today.
  */
 export default function HomePage() {
-  const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
-
-  useEffect(() => {
-    fetch("/api/health")
-      .then((res) => setApiStatus(res.ok ? "reachable" : "unreachable"))
-      .catch(() => setApiStatus("unreachable"));
-  }, []);
-
   return (
     <main className="shell">
       <SiteHeader />
-      <header className="masthead">
-        <p className="eyebrow">Personal biometric intelligence</p>
-        <h1>Somatriq</h1>
-      </header>
-
-      <section className="status" aria-live="polite">
-        <h2 id="server-status">Server status</h2>
-        <p>
-          API at <code>/api</code>:{" "}
-          <strong className={`status-${apiStatus}`}>
-            {apiStatus === "checking" && "checking…"}
-            {apiStatus === "reachable" && "reachable"}
-            {apiStatus === "unreachable" && "unreachable"}
-          </strong>
-        </p>
-      </section>
+      <h1 className="sr-only">Somatriq — personal biometric intelligence</h1>
 
       {/*
        * Asymmetric dashboard (design pass 2026-09-05): the main column

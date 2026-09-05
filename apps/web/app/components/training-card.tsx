@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchTrainingResponse, fetchTrainingSessions } from "../lib/api";
 import type { TrainingResponse, TrainingSession, TrainingWeek } from "../lib/api";
 import { useSession } from "../lib/auth";
+import { readChartPalette, useColorSchemeVersion } from "../lib/chart-palette";
 
 /**
  * Strength training (M12, spec §78-80, §205): the muscular-load layer.
@@ -43,34 +44,10 @@ function formatDay(ts: string): string {
   });
 }
 
-/** Bump a counter when the color scheme flips so the chart re-reads tokens. */
-function useColorSchemeVersion(): number {
-  const [version, setVersion] = useState(0);
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => setVersion((n) => n + 1);
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, []);
-  return version;
-}
-
-function readPalette(): { ink: string; muted: string; paper: string } {
-  if (typeof window === "undefined") {
-    // Static prerender: echarts never renders on the server, fallbacks only.
-    return { ink: "#18181b", muted: "#71717a", paper: "#fafafa" };
-  }
-  const styles = getComputedStyle(document.documentElement);
-  return {
-    ink: styles.getPropertyValue("--ink").trim() || "#18181b",
-    muted: styles.getPropertyValue("--muted").trim() || "#71717a",
-    paper: styles.getPropertyValue("--paper").trim() || "#fafafa",
-  };
-}
 
 /** Quiet weekly-tonnage line: one point per ISO week, no animation (§177). */
 function buildWeeklyOption(
-  palette: { ink: string; muted: string; paper: string },
+  palette: { ink: string; muted: string; paper: string; accent: string },
   weekly: TrainingWeek[],
 ): EChartsOption {
   return {
@@ -121,9 +98,9 @@ function buildWeeklyOption(
         data: weekly.map((week) => Math.round(week.tonnageKg)),
         showSymbol: false,
         connectNulls: false,
-        lineStyle: { width: 1.5, color: palette.ink },
-        itemStyle: { color: palette.ink },
-        areaStyle: { color: palette.ink, opacity: 0.08 },
+        lineStyle: { width: 1.5, color: palette.accent },
+        itemStyle: { color: palette.accent },
+        areaStyle: { color: palette.accent, opacity: 0.1 },
       },
     ],
   };
@@ -246,7 +223,7 @@ function ResponseSection({ response }: { response: TrainingResponse }) {
 export default function TrainingCard() {
   const { ready, token } = useSession();
   const schemeVersion = useColorSchemeVersion();
-  const palette = useMemo(readPalette, [schemeVersion]);
+  const palette = useMemo(readChartPalette, [schemeVersion]);
 
   const sessionsQuery = useQuery({
     queryKey: ["training", "sessions", { days: SESSIONS_DAYS }],

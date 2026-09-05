@@ -9,6 +9,7 @@ import type {
   TooltipComponentFormatterCallbackParams,
 } from "echarts";
 import { authFetch } from "../lib/api";
+import { readChartPalette, useColorSchemeVersion } from "../lib/chart-palette";
 import { useSession } from "../lib/auth";
 
 const HEART_RATE_URL = "/api/v1/metrics/heart_rate?last_hours=24&bucket=5m";
@@ -99,31 +100,6 @@ async function fetchHeartRate(): Promise<HeartRatePayload> {
   return parseHeartRateResponse(await res.json());
 }
 
-/** Bump a counter when the color scheme flips so the chart re-reads the CSS tokens. */
-function useColorSchemeVersion(): number {
-  const [version, setVersion] = useState(0);
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => setVersion((n) => n + 1);
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, []);
-  return version;
-}
-
-/** Read palette values from the existing CSS tokens so light/dark stay in sync. */
-function readPalette(): { ink: string; muted: string; paper: string } {
-  if (typeof window === "undefined") {
-    // Static prerender: echarts never renders on the server, fallbacks only.
-    return { ink: "#18181b", muted: "#71717a", paper: "#fafafa" };
-  }
-  const styles = getComputedStyle(document.documentElement);
-  return {
-    ink: styles.getPropertyValue("--ink").trim() || "#18181b",
-    muted: styles.getPropertyValue("--muted").trim() || "#71717a",
-    paper: styles.getPropertyValue("--paper").trim() || "#fafafa",
-  };
-}
 
 /** [timestamp, bpm] pairs with null sentinels marking missing-data gaps (§174). */
 function toSeriesData(points: HeartRatePoint[]): [number, number | null][] {
@@ -160,7 +136,7 @@ function formatTooltip(params: TooltipComponentFormatterCallbackParams): string 
 }
 
 function buildChartOption(
-  palette: { ink: string; muted: string; paper: string },
+  palette: { ink: string; muted: string; paper: string; accent: string },
   seriesData: [number, number | null][],
   yMin: number,
   yMax: number,
@@ -216,9 +192,9 @@ function buildChartOption(
         data: seriesData,
         showSymbol: false,
         connectNulls: false,
-        lineStyle: { width: 1.5, color: palette.ink },
-        itemStyle: { color: palette.ink },
-        areaStyle: { color: palette.ink, opacity: 0.08 },
+        lineStyle: { width: 1.5, color: palette.accent },
+        itemStyle: { color: palette.accent },
+        areaStyle: { color: palette.accent, opacity: 0.1 },
       },
     ],
   };
@@ -227,7 +203,7 @@ function buildChartOption(
 export default function HeartRateCard() {
   const { ready, token } = useSession();
   const schemeVersion = useColorSchemeVersion();
-  const palette = useMemo(readPalette, [schemeVersion]);
+  const palette = useMemo(readChartPalette, [schemeVersion]);
 
   const query = useQuery({
     queryKey: ["metrics", "heart_rate", { lastHours: 24, bucket: "5m" }],

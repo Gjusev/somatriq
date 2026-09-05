@@ -273,7 +273,7 @@ export default function DataCard() {
             {preview !== null && !commitMutation.isPending && (
               <button
                 type="button"
-                className="btn btn-small"
+                className="btn btn-small btn-primary"
                 onClick={() => commitMutation.mutate()}
                 disabled={!commitEnabled}
                 title={
