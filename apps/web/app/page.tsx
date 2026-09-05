@@ -53,20 +53,28 @@ export default function HomePage() {
             {apiStatus === "unreachable" && "unreachable"}
           </strong>
         </p>
-        <p className="hint">
-          The Today screen anchors the day — recovery, last night, freshness.
-          Heart-rate context follows below.
-        </p>
       </section>
 
-      <TodayCard />
-      <HeartRateCard />
-      <DailyCard />
-      <CorrelationsCard />
-      <ExperimentsCard />
-      <TrainingCard />
-      <DevicesCard />
-      <DataCard />
+      {/*
+       * Asymmetric dashboard (design pass 2026-09-05): the main column
+       * carries the day and the science (Today, heart rate, daily summary,
+       * correlations, training response); the rail carries management
+       * (devices, experiments, data ownership). Single column under 64rem.
+       */}
+      <div className="dashboard">
+        <div className="dashboard-main">
+          <TodayCard />
+          <HeartRateCard />
+          <DailyCard />
+          <CorrelationsCard />
+          <TrainingCard />
+        </div>
+        <aside className="dashboard-rail">
+          <DevicesCard />
+          <ExperimentsCard />
+          <DataCard />
+        </aside>
+      </div>
     </main>
   );
 }

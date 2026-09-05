@@ -185,7 +185,7 @@ export default function PairingPage() {
   }
 
   return (
-    <main className="shell">
+    <main className="shell shell-narrow">
       <SiteHeader />
       <h1>Pair a device</h1>
 

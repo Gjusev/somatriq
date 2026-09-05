@@ -22,14 +22,18 @@ body {
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   line-height: 1.6;
 }
 
 .shell {
-  max-width: 640px;
+  max-width: 72rem;
   margin: 0 auto;
-  padding: 4rem 1.5rem;
+  padding: 3rem 1.5rem 4rem;
+}
+
+.shell-narrow {
+  max-width: 40rem;
 }
 
 .eyebrow {
@@ -41,9 +45,10 @@ body {
 }
 
 h1 {
-  font-size: 1.75rem;
-  letter-spacing: -0.02em;
-  margin: 0.25rem 0 2.5rem;
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin: 0.25rem 0 2rem;
 }
 
 h2 {
@@ -52,6 +57,19 @@ h2 {
   letter-spacing: 0.1em;
   color: var(--muted);
   margin: 0 0 0.75rem;
+}
+
+.dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 4rem;
+  align-items: start;
+}
+
+@media (min-width: 64rem) {
+  .dashboard {
+    grid-template-columns: minmax(0, 1fr) 21rem;
+  }
 }
 
 .status {
@@ -65,7 +83,7 @@ h2 {
 }
 
 code {
-  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-family: var(--font-mono), ui-monospace, "Cascadia Mono", monospace;
   font-size: 0.875em;
 }
 
@@ -103,7 +121,7 @@ code {
 }
 
 .num {
-  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-family: var(--font-mono), ui-monospace, "Cascadia Mono", monospace;
   font-variant-numeric: tabular-nums;
 }
 
@@ -237,6 +255,19 @@ code {
   border-color: var(--bad);
 }
 
+.btn,
+.range-btn,
+.site-nav a {
+  transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .btn:active,
+  .range-btn:active {
+    transform: translateY(1px);
+  }
+}
+
 .btn:disabled {
   opacity: 0.55;
   cursor: default;
@@ -307,7 +338,7 @@ code {
 }
 
 .error-code {
-  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-family: var(--font-mono), ui-monospace, "Cascadia Mono", monospace;
   font-size: 0.75rem;
   letter-spacing: 0.06em;
 }
@@ -331,7 +362,7 @@ code {
 
 .pairing-code {
   margin: 0.5rem 0 0.25rem;
-  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-family: var(--font-mono), ui-monospace, "Cascadia Mono", monospace;
   font-variant-numeric: tabular-nums;
   font-size: clamp(2rem, 8vw, 2.75rem);
   font-weight: 500;
@@ -463,7 +494,7 @@ code {
 
 .stat-value {
   margin: 0;
-  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-family: var(--font-mono), ui-monospace, "Cascadia Mono", monospace;
   font-variant-numeric: tabular-nums;
   font-size: clamp(2.25rem, 8vw, 3rem);
   font-weight: 500;
@@ -505,7 +536,7 @@ code {
 
 .stat-cell dd {
   margin: 0;
-  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-family: var(--font-mono), ui-monospace, "Cascadia Mono", monospace;
   font-variant-numeric: tabular-nums;
   font-size: 1.0625rem;
   color: var(--ink);
@@ -562,7 +593,7 @@ code {
 
 .today-score {
   margin: 0;
-  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-family: var(--font-mono), ui-monospace, "Cascadia Mono", monospace;
   font-variant-numeric: tabular-nums;
   font-size: clamp(3rem, 12vw, 3.75rem);
   font-weight: 500;
@@ -644,7 +675,7 @@ code {
 
 .stat-line dd {
   margin: 0;
-  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-family: var(--font-mono), ui-monospace, "Cascadia Mono", monospace;
   font-variant-numeric: tabular-nums;
   font-size: 1rem;
   color: var(--ink);
@@ -719,7 +750,7 @@ code {
 }
 
 .corr-pair {
-  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-family: var(--font-mono), ui-monospace, "Cascadia Mono", monospace;
   font-size: 0.8125rem;
 }
 

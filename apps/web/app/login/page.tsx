@@ -80,7 +80,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="shell">
+    <main className="shell shell-narrow">
       <SiteHeader />
 
       <h1>{isClaim ? "Claim this server" : "Sign in"}</h1>
