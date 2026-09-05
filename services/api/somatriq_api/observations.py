@@ -70,10 +70,18 @@ _SLEEP_SESSION_PK: Final[tuple[str, ...]] = (
 )
 _RR_PK: Final[tuple[str, ...]] = ("user_id", "device_id", "source_record_id", "ts")
 
-# Multi-row INSERTs must stay under PostgreSQL's 65535-parameter statement
-# ceiling: at most 8 bound parameters per row here, so 5000 rows per
-# statement is always safe (the contract caps a batch at 20 000 records).
-_INSERT_CHUNK_ROWS: Final = 5000
+# Multi-row INSERTs must stay under asyncpg's 32 767-argument CLIENT limit —
+# the driver rejects the statement before PostgreSQL (ceiling 65 535) ever
+# sees it. Rows-per-statement = floor(32 767 / bound-params-per-row); the
+# families below bind at most 8 parameters per row (RR), so one conservative
+# constant serves all of them. Caught live 2026-09-05: the phone's first
+# 20 000-record RR batch crashed rr-intervals at 5 000 rows × 8 = 40 000
+# arguments (InterfaceError: the number of query arguments cannot exceed
+# 32767); the contract caps a batch at 20 000 records, so the chunking must
+# hold for that whole range.
+_ASYNCPG_MAX_ARGS: Final = 32767
+_MAX_PARAMS_PER_ROW: Final = 8
+_INSERT_CHUNK_ROWS: Final = _ASYNCPG_MAX_ARGS // _MAX_PARAMS_PER_ROW  # 4095
 
 
 def _family_ack(batch_id: uuid.UUID, received: int, inserted: int) -> IngestAck:

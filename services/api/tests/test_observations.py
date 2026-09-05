@@ -509,6 +509,39 @@ async def test_rr_intervals_happy_path(api: httpx.AsyncClient, db: AsyncSession)
 
 
 @requires_db
+async def test_rr_intervals_batch_crossing_driver_argument_limit(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    """A real-phone-sized batch must not blow asyncpg's 32 767-argument
+    client limit. Live crash 2026-09-05: the collector's first sync sent a
+    20 000-record RR batch; the old 5 000-row chunk bound 40 000 arguments
+    (8 per row) and asyncpg rejected the statement client-side with
+    InterfaceError — surfacing as HTTP 500. 4 500 records forces a chunk
+    boundary at the new 4 095-row size without needing the full 20 000."""
+    batch_id = str(uuid.uuid4())
+    base = datetime(2026, 9, 2, 6, 0, 0, tzinfo=UTC)
+    records = [
+        _rr_record(n, base + timedelta(milliseconds=800 * n), 800, n)
+        for n in range(1, 4501)  # 4 500 × 8 params = 36 000 args in one chunk pre-fix
+    ]
+
+    response = await api.post(RR_INGEST_PATH, json=_rr_payload(batch_id, records))
+    assert response.status_code == 200, response.text
+    ack = response.json()
+    assert ack["records_received"] == 4500
+    assert ack["records_inserted"] == 4500
+    assert ack["records_duplicate"] == 0
+
+    count = (
+        await db.execute(
+            text("SELECT count(*) FROM timeseries.rr_interval WHERE raw_batch_id = :b"),
+            {"b": uuid.UUID(batch_id)},
+        )
+    ).scalar_one()
+    assert count == 4500
+
+
+@requires_db
 async def test_rr_intervals_replay_counts_duplicates(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
