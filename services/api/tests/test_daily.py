@@ -7,7 +7,7 @@ shape — so they run only when the test database is reachable.
 """
 
 import uuid
-from collections.abc import AsyncIterator, Iterable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterable, Iterator
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
 from typing import cast
@@ -17,6 +17,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from somatriq_api import metrics
+from somatriq_api.accounts import require_account_jwt
 from somatriq_api.metrics import router as metrics_router
 from somatriq_contracts.daily import FEATURE_SET_VERSION
 from somatriq_db.engine import get_engine, get_session
@@ -42,12 +43,15 @@ async def fresh_connection_pool() -> AsyncIterator[None]:
 
 
 @pytest.fixture()
-def metrics_client(db: AsyncSession) -> Iterator[TestClient]:
+def metrics_client(
+    db: AsyncSession, account_jwt_override: Callable[[], uuid.UUID]
+) -> Iterator[TestClient]:
     """App with only the metrics router, served through a per-test engine.
 
     Mirrors test_metrics.py: the app gets a dedicated engine created lazily
     on the TestClient portal loop; seeding via the db fixture shares the same
-    database through its own engine.
+    database through its own engine. The JWT guard is overridden (the 401
+    contract lives in test_read_auth.py).
     """
     engine: AsyncEngine | None = None
 
@@ -67,6 +71,7 @@ def metrics_client(db: AsyncSession) -> Iterator[TestClient]:
     app = FastAPI(lifespan=lifespan)
     app.include_router(metrics_router)
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[require_account_jwt] = account_jwt_override
     with TestClient(app) as client:
         yield client
 

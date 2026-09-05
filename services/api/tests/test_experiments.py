@@ -9,9 +9,9 @@ evaluate() over each phase's COMPLIED days only — non-complied days are
 excluded AND counted. Verdict wording is asserted verbatim (spec §82: even
 a significant result says "consistent with", never "proves").
 
-Writes require the account JWT (like the other write surfaces); reads are
-unauthenticated like the other metric surfaces (spec §122 session auth on
-the web, open reads on the API today).
+Writes AND reads require the account JWT (spec §122): every surface
+authenticates via _auth_headers(), and the 401 flat body is asserted on
+both the create and the read paths.
 """
 
 import uuid
@@ -61,7 +61,11 @@ async def fresh_connection_pool() -> AsyncIterator[None]:
 @pytest.fixture()
 def experiments_client(db: AsyncSession) -> Iterator[TestClient]:
     """App with only the experiments router (plus the flat ApiError body),
-    served through a per-test engine — mirrors test_correlations.py."""
+    served through a per-test engine — mirrors test_correlations.py.
+
+    The REAL account-JWT guard stays active: reads and writes alike
+    authenticate via _auth_headers() (minted with SECRET_KEY=test-secret),
+    and this file pins the 401 contract for the write surface itself."""
     from somatriq_api.main import api_error_handler
 
     engine: AsyncEngine | None = None
@@ -270,6 +274,10 @@ async def test_read_rolls_the_window_forward(
     first, start_day, _ = _window(5, 7, 7)
 
     response = experiments_client.get(f"{EXPERIMENTS}/{experiment_id}")
+    assert response.status_code == 401  # reads need the account JWT too (§122)
+    response = experiments_client.get(
+        f"{EXPERIMENTS}/{experiment_id}", headers=await _auth_headers()
+    )
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["current_phase"] == "intervention"
@@ -285,11 +293,11 @@ async def test_read_rolls_the_window_forward(
 
 
 @requires_db
-async def test_list_is_unauthenticated_and_carries_progress(
+async def test_list_carries_progress(
     experiments_client: TestClient, db: AsyncSession
 ) -> None:
     experiment_id = await _seed_experiment(db, started_days_ago=5)
-    response = experiments_client.get(EXPERIMENTS)  # no token, metric-style read
+    response = experiments_client.get(EXPERIMENTS, headers=await _auth_headers())
     assert response.status_code == 200, response.text
     listed = response.json()
     assert [item["id"] for item in listed] == [str(experiment_id)]
@@ -451,6 +459,10 @@ async def test_detail_recomputes_the_evaluation_live(
     assert completed.status_code == 200
 
     detail = experiments_client.get(f"{EXPERIMENTS}/{experiment_id}")
+    assert detail.status_code == 401  # reads need the account JWT (§122)
+    detail = experiments_client.get(
+        f"{EXPERIMENTS}/{experiment_id}", headers=await _auth_headers()
+    )
     assert detail.status_code == 200
     evaluation = detail.json()["evaluation"]
     assert evaluation is not None

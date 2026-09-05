@@ -9,7 +9,7 @@ made-up coefficient.
 """
 
 import uuid
-from collections.abc import AsyncIterator, Iterable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterable, Iterator
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
 from typing import cast
@@ -20,6 +20,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from somatriq_analytics.correlation_data import MATRIX_METRICS
 from somatriq_analytics.correlations import CAUSAL_LANGUAGE_NOTE, ZERO_VARIANCE_REASON
+from somatriq_api.accounts import require_account_jwt
 from somatriq_api.correlations import router as correlations_router
 from somatriq_api.errors import ApiError
 from somatriq_db.engine import get_session
@@ -48,9 +49,12 @@ async def fresh_connection_pool() -> AsyncIterator[None]:
 
 
 @pytest.fixture()
-def correlations_client(db: AsyncSession) -> Iterator[TestClient]:
+def correlations_client(
+    db: AsyncSession, account_jwt_override: Callable[[], uuid.UUID]
+) -> Iterator[TestClient]:
     """App with only the correlations router (plus the flat ApiError body),
-    served through a per-test engine — mirrors test_daily.py."""
+    served through a per-test engine — mirrors test_daily.py. The JWT guard
+    is overridden (the 401 contract lives in test_read_auth.py)."""
     from somatriq_api.main import api_error_handler
 
     engine: AsyncEngine | None = None
@@ -72,6 +76,7 @@ def correlations_client(db: AsyncSession) -> Iterator[TestClient]:
     app.exception_handler(ApiError)(api_error_handler)
     app.include_router(correlations_router)
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[require_account_jwt] = account_jwt_override
     with TestClient(app) as client:
         yield client
 

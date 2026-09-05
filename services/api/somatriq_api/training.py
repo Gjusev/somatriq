@@ -17,9 +17,8 @@ Honesty rules held here (spec §81-82):
 * summaries are computed LIVE on every read — nothing derived is persisted
   (ADR 0012 spirit).
 
-Auth: the write (create session) requires the account JWT like the other
-write surfaces; reads are unauthenticated like the other metric surfaces
-today (single-user deployment).
+Auth: every surface — writes and reads — requires the account JWT (spec
+§122): strength data answers the owner's web session, never the bare URL.
 """
 
 import uuid
@@ -275,18 +274,20 @@ async def create_training_session(
 
 @router.get("/sessions", response_model=TrainingSessionListResponse)
 async def list_training_sessions(
+    user_id: AccountJwtDep,
     session: SessionDep,
     days: Annotated[int, Query(ge=1, le=365)] = _DEFAULT_DAYS,
 ) -> TrainingSessionListResponse:
     """Sessions over the last ``days`` local days with live summaries and
-    weekly (ISO-week) tonnage / hard-set aggregates."""
+    weekly (ISO-week) tonnage / hard-set aggregates; account JWT required
+    (spec §122), scoped to the authenticated user."""
     tz = ZoneInfo(get_settings().user_timezone)
     cutoff = datetime.now(UTC) - timedelta(days=days)
     sessions = list(
         (
             await session.execute(
                 select(TrainingSession)
-                .where(TrainingSession.ts >= cutoff)
+                .where(TrainingSession.user_id == user_id, TrainingSession.ts >= cutoff)
                 .order_by(TrainingSession.ts.desc())
             )
         )
@@ -333,6 +334,7 @@ async def list_training_sessions(
 
 @router.get("/response", response_model=TrainingResponseResponse)
 async def read_training_response(
+    user_id: AccountJwtDep,
     session: SessionDep,
     days: Annotated[int, Query(ge=14, le=365)] = 90,
     method: Annotated[Method, Query(pattern="^(pearson|spearman)$")] = "spearman",

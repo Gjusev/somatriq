@@ -168,12 +168,23 @@ def main() -> int:
     assert ours is not None and ours["last_used_at"], devices
     print(f"9) devices list    ok: {ours['name']} last_used={ours['last_used_at']}")
 
-    # 10. Metric still serves (unauthenticated read path unchanged).
-    series = _req("GET", "/api/v1/metrics/heart_rate?last_hours=24&bucket=5m")
+    # 10. Metric still serves — reads carry the account JWT now (spec §122);
+    #     the device token must NOT authorize a read.
+    try:
+        _req("GET", "/api/v1/metrics/heart_rate?last_hours=24&bucket=5m", token=device_token)
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 401, f"device token on a read: expected 401, got {exc.code}"
+        print("10) read guard     ok: device token on metric read rejected (401)")
+    else:
+        raise AssertionError("device token authorized a metric read — reads must be owner-only")
+    series = _req("GET", "/api/v1/metrics/heart_rate?last_hours=24&bucket=5m", token=jwt)
     assert series["count"] > 0, series
-    print(f"10) metric read    ok: {series['count']} points, coverage={series['coverage']}")
+    print(f"11) metric read    ok: {series['count']} points, coverage={series['coverage']}")
 
-    print("E2E PASS — account -> pairing -> device token -> envelope v2 + raw_ack -> replay")
+    print(
+        "E2E PASS — account -> pairing -> device token -> envelope v2 + raw_ack -> replay "
+        "-> owner-authenticated read"
+    )
     return 0
 
 

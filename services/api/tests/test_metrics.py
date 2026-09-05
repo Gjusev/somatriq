@@ -6,13 +6,14 @@ run only when the test database is reachable and skip otherwise.
 """
 
 import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from somatriq_api.accounts import require_account_jwt
 from somatriq_api.metrics import router as metrics_router
 from somatriq_db.engine import get_engine, get_session
 from somatriq_db.models import Device, HeartRate, User
@@ -46,7 +47,9 @@ async def fresh_connection_pool() -> AsyncIterator[None]:
 
 
 @pytest.fixture()
-def metrics_client(db: AsyncSession) -> Iterator[TestClient]:
+def metrics_client(
+    db: AsyncSession, account_jwt_override: Callable[[], uuid.UUID]
+) -> Iterator[TestClient]:
     """App with only the metrics router, served through a per-test engine.
 
     The module-level engine in somatriq_db.engine pools connections on the
@@ -54,6 +57,10 @@ def metrics_client(db: AsyncSession) -> Iterator[TestClient]:
     own portal loop, so the app gets a dedicated engine created lazily on
     that loop (and disposed on it at shutdown). Seeding via the db fixture
     shares the same database through its own engine.
+
+    Reads are JWT-guarded (spec §122); the guard is overridden here because
+    this file pins the read semantics — the 401 contract itself lives in
+    test_read_auth.py.
 
     Wiring the router into somatriq_api.main is a separate slice.
     """
@@ -75,6 +82,7 @@ def metrics_client(db: AsyncSession) -> Iterator[TestClient]:
     app = FastAPI(lifespan=lifespan)
     app.include_router(metrics_router)
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[require_account_jwt] = account_jwt_override
     with TestClient(app) as client:
         yield client
 

@@ -10,11 +10,11 @@ principal. These families carry no raw section (the contracts reject one),
 so acknowledgements are always observations-only — ``raw_ack=False`` never
 authorizes collector-side pruning (ADR 0003 §50).
 
-Reads are unauthenticated like the other metric reads (session auth lands
-with the web app, spec §122) and single-user by the M1 assumption: the daily
-vendor-observations card (present days only — clients render their own gaps,
-unlike the HR daily card which materializes filler days), the sleep session
-list with stages, and the RR viewport series.
+Reads are behind the account JWT like the other metric reads (spec §122)
+and single-user by the M1 assumption: the daily vendor-observations card
+(present days only — clients render their own gaps, unlike the HR daily card
+which materializes filler days), the sleep session list with stages, and the
+RR viewport series.
 """
 
 import uuid
@@ -37,6 +37,7 @@ from sqlalchemy import select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from somatriq_api.accounts import AccountJwtDep
 from somatriq_api.ingest_common import (
     canonical_content_hash,
     register_accepted_batch,
@@ -311,10 +312,12 @@ class DailyObservationsResponse(BaseModel):
 
 @observations_router.get("/daily", response_model=DailyObservationsResponse)
 async def read_daily_observations(
+    user_id: AccountJwtDep,
     session: SessionDep,
     days: Annotated[int, Query(ge=1, le=120)] = 14,
 ) -> DailyObservationsResponse:
-    """Vendor daily observations over the last ``days`` local days.
+    """Vendor daily observations over the last ``days`` local days; account
+    JWT required (spec §122).
 
     Only days with at least one reported metric are listed — unlike the HR
     daily card, no filler days are synthesized; clients render their own
@@ -369,13 +372,14 @@ class SleepSessionsResponse(BaseModel):
 
 @sleep_router.get("/sessions", response_model=SleepSessionsResponse)
 async def read_sleep_sessions(
+    user_id: AccountJwtDep,
     session: SessionDep,
     days: Annotated[int, Query(ge=1, le=120)] = 14,
 ) -> SleepSessionsResponse:
     """Sleep sessions starting within the last ``days`` days, ascending by
-    start_ts, stages nested and counted. Duplicate reports of the same
-    (source_record_id, start_ts) across devices resolve to the most recently
-    received copy, stages included."""
+    start_ts, stages nested and counted; account JWT required (spec §122).
+    Duplicate reports of the same (source_record_id, start_ts) across
+    devices resolve to the most recently received copy, stages included."""
     cutoff = datetime.now(UTC) - timedelta(days=days)
 
     result = await session.execute(
@@ -468,11 +472,13 @@ _RR_NO_DATA_CAVEAT: Final = "no data in range"
 
 @rr_router.get("/rr", response_model=RrSeriesResponse)
 async def read_rr_intervals(
+    user_id: AccountJwtDep,
     session: SessionDep,
     last_hours: Annotated[int, Query(ge=1, le=24 * 400)] = 24,
     bucket: Annotated[str, Query(pattern="^(none|5m|1h)$")] = "5m",
 ) -> RrSeriesResponse:
-    """RR-interval viewport series, mirroring the heart-rate endpoint shape.
+    """RR-interval viewport series, mirroring the heart-rate endpoint shape;
+    account JWT required (spec §122).
 
     Buckets carry the mean rr_ms plus the per-bucket sample count — the count
     is the coverage signal here, because rr_interval has no expected cadence

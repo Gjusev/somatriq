@@ -4,10 +4,14 @@ Usage:
     python scripts/e2e_smoke.py https://somatriq.mokka-dev.de <INGEST_TOKEN>
 
 Posts a synthetic heart-rate batch TWICE (idempotency proof), then reads the
-metric endpoint. Exits non-zero on any violated expectation.
+metric endpoint. Metric reads carry the account JWT (spec §122) — set
+SQT_OWNER_USER and SQT_OWNER_PASS to the owner's web credentials (the same
+login the web app uses); the script fails with a clear error when they are
+missing. Exits non-zero on any violated expectation.
 """
 
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -17,6 +21,8 @@ from uuid import uuid4
 
 BASE = sys.argv[1].rstrip("/")
 TOKEN = sys.argv[2]
+OWNER_USER = os.environ.get("SQT_OWNER_USER")
+OWNER_PASS = os.environ.get("SQT_OWNER_PASS")
 BATCH_ID = str(uuid4())
 NOW = datetime.now(UTC)
 RECORDS = [
@@ -42,10 +48,30 @@ def post_batch() -> dict[str, Any]:
         return parsed
 
 
-def get_metric() -> dict[str, Any]:
-    with urllib.request.urlopen(
-        BASE + "/api/v1/metrics/heart_rate?last_hours=24&bucket=5m", timeout=15
-    ) as res:
+def owner_login() -> str:
+    """Account JWT for the metric read (spec §122: reads are owner-only)."""
+    if not OWNER_USER or not OWNER_PASS:
+        print(
+            "E2E FAIL: metric reads need the account JWT — set SQT_OWNER_USER and "
+            "SQT_OWNER_PASS to the owner's web credentials"
+        )
+        sys.exit(1)
+    req = urllib.request.Request(
+        BASE + "/api/v1/auth/login",
+        data=json.dumps({"username": OWNER_USER, "password": OWNER_PASS}).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=15) as res:
+        return str(json.loads(res.read())["access_token"])
+
+
+def get_metric(jwt: str) -> dict[str, Any]:
+    req = urllib.request.Request(
+        BASE + "/api/v1/metrics/heart_rate?last_hours=24&bucket=5m",
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    with urllib.request.urlopen(req, timeout=15) as res:
         parsed: dict[str, Any] = json.loads(res.read())
         return parsed
 
@@ -63,12 +89,15 @@ def main() -> int:
     assert second["records_duplicate"] == len(RECORDS), f"replay duplicates wrong: {second}"
     print(f"2) replay        ok: inserted=0 duplicates={second['records_duplicate']} (idempotent)")
 
-    series = get_metric()
+    jwt = owner_login()
+    print("3) owner login   ok: account JWT minted for the metric read")
+
+    series = get_metric(jwt)
     assert series["count"] > 0, f"metric empty after ingest: {series}"
     assert series["unit"] == "bpm" and series["points"], series
-    print(f"3) metric read   ok: {series['count']} bucketed points, coverage={series['coverage']}")
+    print(f"4) metric read   ok: {series['count']} bucketed points, coverage={series['coverage']}")
 
-    print("E2E PASS — synthetic batch -> ingest -> postgres -> metric read")
+    print("E2E PASS — synthetic batch -> ingest -> postgres -> owner-authenticated metric read")
     return 0
 
 

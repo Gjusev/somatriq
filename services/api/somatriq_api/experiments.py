@@ -23,9 +23,8 @@ hand-tested); the outcome series comes from
 its catalog — never a free-text outcome). Evaluation uses each phase's
 COMPLIED days only; non-complied days are excluded AND counted.
 
-Auth: writes (create/check-in/complete) require the account JWT like the
-other write surfaces; reads are unauthenticated like the other metric
-surfaces today (single-user deployment).
+Auth: every surface — writes and reads — requires the account JWT (spec
+§122): experiment data answers the owner's web session, never the bare URL.
 """
 
 import uuid
@@ -375,11 +374,11 @@ def _build_response(
 
 
 async def _fetch_experiment(
-    session: AsyncSession, experiment_id: uuid.UUID, user_id: uuid.UUID | None
+    session: AsyncSession, experiment_id: uuid.UUID, user_id: uuid.UUID
 ) -> Experiment:
-    statement = select(Experiment).where(Experiment.id == experiment_id)
-    if user_id is not None:
-        statement = statement.where(Experiment.user_id == user_id)
+    statement = select(Experiment).where(
+        Experiment.id == experiment_id, Experiment.user_id == user_id
+    )
     experiment = (await session.execute(statement)).scalar_one_or_none()
     if experiment is None:
         raise ApiError(
@@ -423,15 +422,20 @@ async def create_experiment(
 
 @router.get("", response_model=list[ExperimentResponse])
 @router.get("/", response_model=list[ExperimentResponse])
-async def list_experiments(session: SessionDep) -> list[ExperimentResponse]:
+async def list_experiments(
+    user_id: AccountJwtDep, session: SessionDep
+) -> list[ExperimentResponse]:
     """Every experiment with live progress, compliance and (once completed)
-    the evaluation — unauthenticated like the other metric reads."""
+    the evaluation — account JWT required (spec §122), scoped to the
+    authenticated user."""
     tz = ZoneInfo(get_settings().user_timezone)
     today = _local_today(tz)
     experiments = list(
         (
             await session.execute(
-                select(Experiment).order_by(Experiment.created_at, Experiment.id)
+                select(Experiment)
+                .where(Experiment.user_id == user_id)
+                .order_by(Experiment.created_at, Experiment.id)
             )
         )
         .scalars()
@@ -452,12 +456,13 @@ async def list_experiments(session: SessionDep) -> list[ExperimentResponse]:
 
 @router.get("/{experiment_id}", response_model=ExperimentResponse)
 async def read_experiment(
-    experiment_id: uuid.UUID, session: SessionDep
+    experiment_id: uuid.UUID, user_id: AccountJwtDep, session: SessionDep
 ) -> ExperimentResponse:
     """One experiment: current phase, compliance, and (once completed) the
-    evaluation computed live on this read."""
+    evaluation computed live on this read; account JWT required (spec §122),
+    scoped to the authenticated user."""
     tz = ZoneInfo(get_settings().user_timezone)
-    experiment = await _fetch_experiment(session, experiment_id, None)
+    experiment = await _fetch_experiment(session, experiment_id, user_id)
     await roll_forward(session, experiment, _local_today(tz), tz)
     rows = await _day_rows(session, experiment.id)
     evaluation = (

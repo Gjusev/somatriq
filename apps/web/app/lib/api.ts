@@ -647,27 +647,28 @@ export function revokeDevice(deviceId: string): Promise<void> {
 }
 
 /**
- * GET /api/v1/metrics/daily?days=N — unauthenticated today, like the other
- * metric endpoints. Days are returned oldest-first, one row per local day.
+ * GET /api/v1/metrics/daily?days=N — account JWT (spec §122: data reads are
+ * owner-only). Days are returned oldest-first, one row per local day.
  */
 export function fetchDailySummary(days: number): Promise<DailySummaryResponse> {
-  return getJson(`/api/v1/metrics/daily?days=${days}`, false, parseDailySummary);
+  return getJson(`/api/v1/metrics/daily?days=${days}`, true, parseDailySummary);
 }
 
 /**
- * GET /api/v1/metrics/today — unauthenticated, like the other metric
- * endpoints. The day's recovery result and HRV/sleep summaries for the
+ * GET /api/v1/metrics/today — account JWT (spec §122: data reads are
+ * owner-only). The day's recovery result and HRV/sleep summaries for the
  * current wake-date, in the day's effective timezone (ADR 0017).
  */
 export function fetchToday(): Promise<TodayResponse> {
-  return getJson("/api/v1/metrics/today", false, parseToday);
+  return getJson("/api/v1/metrics/today", true, parseToday);
 }
 
 // ---------------------------------------------------------------------------
 // Correlation matrix contract mirror (M10, somatriq_api/correlations.py —
-// frozen shapes). The matrix is unauthenticated like the other metric
-// reads; every field is validated, and the causal-language note travels on
-// the wire and is rendered verbatim (spec §82: no causal claims, ever).
+// frozen shapes). The matrix carries the account JWT like every data read
+// (spec §122); every field is validated, and the causal-language note
+// travels on the wire and is rendered verbatim (spec §82: no causal claims,
+// ever).
 // ---------------------------------------------------------------------------
 
 export type CorrelationBand = "none" | "weak" | "moderate" | "strong";
@@ -779,13 +780,13 @@ function parseCorrelationMatrix(raw: unknown): CorrelationMatrixResponse {
  * with their reasons; the note is the persistent causal-language footer.
  */
 export function fetchCorrelationMatrix(days: number): Promise<CorrelationMatrixResponse> {
-  return getJson(`/api/v1/correlations/matrix?days=${days}`, false, parseCorrelationMatrix);
+  return getJson(`/api/v1/correlations/matrix?days=${days}`, true, parseCorrelationMatrix);
 }
 
 // ---------------------------------------------------------------------------
 // Experiments contract mirror (M11, somatriq_api/experiments.py — frozen
-// shapes). Reads are unauthenticated like the other metric surfaces; the
-// create write carries the account JWT. The evaluation is computed on read
+// shapes). Reads carry the account JWT like every data surface (spec §122),
+// same as the create write. The evaluation is computed on read
 // once the experiment is completed (evaluation_version distinguishes it);
 // its verdict wording is validated on the wire — "consistent with effect",
 // never "proves" (spec §82).
@@ -1010,7 +1011,7 @@ function parseExperimentList(raw: unknown): Experiment[] {
 
 /** GET /api/v1/experiments — every experiment, live progress + evaluation. */
 export function fetchExperiments(): Promise<Experiment[]> {
-  return getJson("/api/v1/experiments", false, parseExperimentList);
+  return getJson("/api/v1/experiments", true, parseExperimentList);
 }
 
 /** POST /api/v1/experiments — account JWT; baseline window backfilled today. */
@@ -1020,8 +1021,8 @@ export function createExperiment(draft: ExperimentDraft): Promise<Experiment> {
 
 // ---------------------------------------------------------------------------
 // Training contract mirror (M12, somatriq_api/training.py — frozen shapes).
-// Reads are unauthenticated like the other metric surfaces; the create write
-// carries the account JWT. Summaries are computed live on every read; the
+// Reads carry the account JWT like every data surface (spec §122), same as
+// the create write. Summaries are computed live on every read; the
 // §80 response rows carry p/p_method alongside the matrix fields, and the
 // causal-language note travels on the wire verbatim (spec §82).
 // ---------------------------------------------------------------------------
@@ -1187,7 +1188,7 @@ function parseTrainingResponse(raw: unknown): TrainingResponse {
 
 /** GET /api/v1/training/sessions?days=N — live summaries + ISO-week totals. */
 export function fetchTrainingSessions(days: number): Promise<TrainingSessionsResponse> {
-  return getJson(`/api/v1/training/sessions?days=${days}`, false, parseTrainingSessions);
+  return getJson(`/api/v1/training/sessions?days=${days}`, true, parseTrainingSessions);
 }
 
 /** POST /api/v1/training/sessions — account JWT; weight omitted = bodyweight. */
@@ -1217,7 +1218,7 @@ export function createTrainingSession(payload: {
 
 /** GET /api/v1/training/response — §80 load vs next-day recovery pairs. */
 export function fetchTrainingResponse(days: number): Promise<TrainingResponse> {
-  return getJson(`/api/v1/training/response?days=${days}`, false, parseTrainingResponse);
+  return getJson(`/api/v1/training/response?days=${days}`, true, parseTrainingResponse);
 }
 
 // ---------------------------------------------------------------------------

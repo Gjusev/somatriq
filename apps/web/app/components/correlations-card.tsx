@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { fetchCorrelationMatrix } from "../lib/api";
+import { useSession } from "../lib/auth";
 import type { CorrelationPairRow } from "../lib/api";
 
 /**
@@ -25,11 +27,13 @@ function formatR(value: number): string {
 }
 
 export default function CorrelationsCard() {
+  const { ready, token } = useSession();
   const [range, setRange] = useState<number>(DEFAULT_RANGE);
 
   const query = useQuery({
     queryKey: ["correlations", "matrix", { days: range }],
     queryFn: () => fetchCorrelationMatrix(range),
+    enabled: ready && token !== null,
     staleTime: 300_000,
     refetchInterval: 600_000,
   });
@@ -64,7 +68,7 @@ export default function CorrelationsCard() {
         </div>
       </header>
 
-      {query.isPending && (
+      {!ready && (
         <div className="skeleton" role="status" aria-label="Loading correlations">
           <div className="skeleton-bar" style={{ width: "44%" }} />
           <div className="skeleton-bar" style={{ width: "72%" }} />
@@ -73,7 +77,28 @@ export default function CorrelationsCard() {
         </div>
       )}
 
-      {query.isError && (
+      {ready && token === null && (
+        <div className="state">
+          <p className="state-message">
+            Sign in to see your correlations — co-movement in your own data
+            answers the owner&apos;s session only.
+          </p>
+          <Link href="/login/" className="btn">
+            Sign in
+          </Link>
+        </div>
+      )}
+
+      {ready && token !== null && query.isPending && (
+        <div className="skeleton" role="status" aria-label="Loading correlations">
+          <div className="skeleton-bar" style={{ width: "44%" }} />
+          <div className="skeleton-bar" style={{ width: "72%" }} />
+          <div className="skeleton-bar" style={{ width: "58%" }} />
+          <div className="skeleton-bar" style={{ width: "66%" }} />
+        </div>
+      )}
+
+      {ready && token !== null && query.isError && (
         <div className="state" role="alert">
           <p className="state-message">
             Could not load correlations — {errorReason}. The API may be

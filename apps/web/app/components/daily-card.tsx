@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
 import type {
@@ -8,6 +9,7 @@ import type {
   TooltipComponentFormatterCallbackParams,
 } from "echarts";
 import { fetchDailySummary } from "../lib/api";
+import { useSession } from "../lib/auth";
 import type { DailyHeartSummary } from "../lib/api";
 
 const MONO = 'ui-monospace, "Cascadia Mono", monospace';
@@ -179,6 +181,7 @@ function buildChartOption(
 }
 
 export default function DailyCard() {
+  const { ready, token } = useSession();
   const [range, setRange] = useState<number>(DEFAULT_RANGE);
   const schemeVersion = useColorSchemeVersion();
   const palette = useMemo(readPalette, [schemeVersion]);
@@ -186,6 +189,7 @@ export default function DailyCard() {
   const query = useQuery({
     queryKey: ["metrics", "daily", { days: range }],
     queryFn: () => fetchDailySummary(range),
+    enabled: ready && token !== null,
     staleTime: 60_000,
     refetchInterval: 300_000,
   });
@@ -263,7 +267,7 @@ export default function DailyCard() {
         </div>
       </header>
 
-      {query.isPending && (
+      {!ready && (
         <div className="skeleton" role="status" aria-label="Loading daily summary">
           <div className="skeleton-bar" style={{ width: "38%" }} />
           <div className="skeleton-chart" />
@@ -271,7 +275,27 @@ export default function DailyCard() {
         </div>
       )}
 
-      {query.isError && (
+      {ready && token === null && (
+        <div className="state">
+          <p className="state-message">
+            Sign in to see your daily resting heart rate — health reads answer
+            the owner&apos;s session only.
+          </p>
+          <Link href="/login/" className="btn">
+            Sign in
+          </Link>
+        </div>
+      )}
+
+      {ready && token !== null && query.isPending && (
+        <div className="skeleton" role="status" aria-label="Loading daily summary">
+          <div className="skeleton-bar" style={{ width: "38%" }} />
+          <div className="skeleton-chart" />
+          <div className="skeleton-bar" style={{ width: "56%" }} />
+        </div>
+      )}
+
+      {ready && token !== null && query.isError && (
         <div className="state" role="alert">
           <p className="state-message">
             Could not load the daily summary — {errorReason}. The API may be

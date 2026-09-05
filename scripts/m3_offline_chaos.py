@@ -17,7 +17,12 @@ Run against the real origin with a REAL outage (compose stopped via Dokploy):
     python scripts/m3_offline_chaos.py https://somatriq.mokka-dev.de collect --offline-minutes 3
     # ... start the stack ...
     python scripts/m3_offline_chaos.py https://somatriq.mokka-dev.de drain
-    python scripts/m3_offline_chaos.py https://somatriq.mokka-dev.de verify
+    SQT_OWNER_USER=... SQT_OWNER_PASS=... \
+        python scripts/m3_offline_chaos.py https://somatriq.mokka-dev.de verify
+
+`verify` also checks the read side (spec §122): the metric endpoint must
+answer 401 without the account JWT and serve the owner after login, so the
+owner credentials above (same account `pair` uses) are required.
 
 Exit codes: 0 pass, 1 fail — CI-able in the future with a compose stop/start
 wrapper.
@@ -26,6 +31,7 @@ wrapper.
 import base64
 import hashlib
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -211,13 +217,35 @@ def drain(max_wait_s: float = 120.0) -> int:
     return 0
 
 
+def _owner_login() -> str:
+    """Account JWT for the read-side verification (spec §122: reads are
+    owner-only). Credentials come from the environment — the same owner
+    account the `pair` command uses."""
+    username = os.environ.get("SQT_OWNER_USER")
+    password = os.environ.get("SQT_OWNER_PASS")
+    if not username or not password:
+        print("VERIFY FAIL — the read check needs the owner account: set "
+              "SQT_OWNER_USER and SQT_OWNER_PASS (same credentials as `pair`)")
+        raise SystemExit(1)
+    req = urllib.request.Request(
+        BASE + "/api/v1/auth/login",
+        data=json.dumps({"username": username, "password": password}).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=15) as res:
+        return str(json.loads(res.read())["access_token"])
+
+
 def verify() -> int:
     """The §196 gate: no loss, no duplicates — proven by forensic replay.
 
     Re-post EVERY acked envelope byte-identically. Exactly-once holds iff the
     server answers accepted with inserted=0 and duplicates=<n> for every one
     (all records present => nothing lost; nothing re-inserted => no dupes).
-    Uses only the public ingest contract — no admin endpoint needed.
+    Uses only the public ingest contract — no admin endpoint needed. Finally
+    the owner-authenticated metric read proves the data is actually VISIBLE
+    server-side (and that reads answer the account JWT only, spec §122).
     """
     token_file = Path(__file__).parent / ".m3_device_token"
     device_token = token_file.read_text(encoding="utf-8").strip()
@@ -239,6 +267,29 @@ def verify() -> int:
             print(f"VERIFY FAIL — batch {env['batch_id'][:8]} lost raw_ack on replay")
             return 1
         print(f"  [{i:2}/{len(state['acked'])}] {env['batch_id'][:8]} dupes={n}")
+
+    # Read-side gate: the metric endpoint answers ONLY the account JWT.
+    jwt = _owner_login()
+    try:
+        urllib.request.urlopen(
+            urllib.request.Request(BASE + "/api/v1/metrics/heart_rate?last_hours=24"),
+            timeout=15,
+        )
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 401, f"unauthenticated read: expected 401, got {exc.code}"
+    else:
+        print("VERIFY FAIL — unauthenticated metric read was allowed (spec §122)")
+        return 1
+    req = urllib.request.Request(
+        BASE + "/api/v1/metrics/heart_rate?last_hours=24",
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    with urllib.request.urlopen(req, timeout=15) as res:
+        series = json.loads(res.read())
+    if series.get("count", 0) <= 0:
+        print(f"VERIFY FAIL — metric read empty after {total_records} records: {series}")
+        return 1
+    print(f"read gate ok: {series['count']} points visible to the owner (401 without JWT)")
     print(f"M3 VERIFY PASS — {len(state['acked'])} batches / {total_records} records: "
           "exactly-once through a real outage (no loss, no duplicates)")
     return 0

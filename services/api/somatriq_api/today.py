@@ -1,6 +1,6 @@
 """GET /api/v1/metrics/today — the day's recovery + inputs (spec §76, §181;
-ADR 0012/0017). Mounted under the metrics prefix with the other unauthenticated
-reads (session auth lands with the web app, spec §122).
+ADR 0012/0017). Mounted under the metrics prefix with the other owner-only
+reads, behind the account JWT (spec §122).
 
 M7: the DB assembly lives in somatriq_analytics.today_data.assemble_today so
 the HTTP surface and the Telegram morning brief read the SAME numbers by
@@ -19,6 +19,7 @@ from somatriq_contracts.recovery import TodayResponse
 from somatriq_db.engine import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .accounts import AccountJwtDep
 from .settings import get_settings
 
 router = APIRouter(prefix="/api/v1/metrics", tags=["today"])
@@ -31,13 +32,15 @@ def _now() -> datetime:
 
 @router.get("/today", response_model=TodayResponse)
 async def read_today(
+    user_id: AccountJwtDep,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> TodayResponse:
     """Today's sleep, HRV, resting HR and explainable recovery (spec §76).
 
-    Unauthenticated like the other reads. The recovery result is always
-    present — with missing_inputs listed and a null score when the day has
-    not earned one — because the explainability surface is the point.
+    Account JWT required like the other reads (spec §122). The recovery
+    result is always present — with missing_inputs listed and a null score
+    when the day has not earned one — because the explainability surface is
+    the point.
     """
     tz = ZoneInfo(get_settings().user_timezone)
     data = await assemble_today(session, tz=tz, now=_now())

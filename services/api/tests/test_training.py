@@ -53,7 +53,9 @@ async def fresh_connection_pool() -> AsyncIterator[None]:
 @pytest.fixture()
 def training_client(db: AsyncSession) -> Iterator[TestClient]:
     """App with only the training router (plus the flat ApiError body),
-    served through a per-test engine — mirrors test_experiments.py."""
+    served through a per-test engine — mirrors test_experiments.py. The REAL
+    account-JWT guard stays active: every read and write authenticates via
+    _auth_headers() (minted with SECRET_KEY=test-secret)."""
     from somatriq_api.main import api_error_handler
 
     engine: AsyncEngine | None = None
@@ -296,7 +298,9 @@ async def test_list_summaries_and_weekly_aggregates(
     await _seed_training_day(db, days[-1], "squat", 100.0, 8)
     await _seed_training_day(db, days[-1] - timedelta(days=8), "squat", 100.0, 8)
 
-    response = training_client.get(f"{TRAINING}/sessions", params={"days": 30})
+    response = training_client.get(
+        f"{TRAINING}/sessions", params={"days": 30}, headers=await _auth_headers()
+    )
     assert response.status_code == 200
     body = response.json()
     assert len(body["sessions"]) == 2
@@ -315,7 +319,7 @@ async def test_list_summaries_and_weekly_aggregates(
 
 @requires_db
 async def test_list_empty_is_empty(training_client: TestClient) -> None:
-    response = training_client.get(f"{TRAINING}/sessions")
+    response = training_client.get(f"{TRAINING}/sessions", headers=await _auth_headers())
     assert response.status_code == 200
     body = response.json()
     assert body["sessions"] == []
@@ -328,7 +332,9 @@ async def test_list_days_bounds_the_window(
 ) -> None:
     days = _last_days(10)
     await _seed_training_day(db, days[0], "squat", 100.0, 8)  # 10 days ago
-    response = training_client.get(f"{TRAINING}/sessions", params={"days": 5})
+    response = training_client.get(
+        f"{TRAINING}/sessions", params={"days": 5}, headers=await _auth_headers()
+    )
     assert response.status_code == 200
     assert response.json()["sessions"] == []
 
@@ -350,7 +356,9 @@ async def test_response_correlates_load_with_next_day_recovery(
     await _seed_resting_hr(db, [(d, 60.0 - 0.2 * i) for i, d in enumerate(days)])
     await _seed_rmssd_nights(db, [(d, 120 - 4 * i) for i, d in enumerate(days)])
 
-    response = training_client.get(f"{TRAINING}/response", params={"days": 30})
+    response = training_client.get(
+        f"{TRAINING}/response", params={"days": 30}, headers=await _auth_headers()
+    )
     assert response.status_code == 200
     body = response.json()
 
@@ -388,7 +396,7 @@ async def test_response_correlates_load_with_next_day_recovery(
 async def test_response_empty_database_skips_everything(
     training_client: TestClient,
 ) -> None:
-    response = training_client.get(f"{TRAINING}/response")
+    response = training_client.get(f"{TRAINING}/response", headers=await _auth_headers())
     assert response.status_code == 200
     body = response.json()
     assert body["pairs"] == []
@@ -409,7 +417,9 @@ async def test_response_short_history_is_insufficient_overlap(
         await _seed_training_day(db, day, "squat", 100.0 + 5.0 * i, 8)
     await _seed_resting_hr(db, [(d, 60.0 - 0.2 * i) for i, d in enumerate(days)])
 
-    response = training_client.get(f"{TRAINING}/response", params={"days": 30})
+    response = training_client.get(
+        f"{TRAINING}/response", params={"days": 30}, headers=await _auth_headers()
+    )
     assert response.status_code == 200
     body = response.json()
     assert body["pairs"] == []
@@ -424,13 +434,16 @@ async def test_response_short_history_is_insufficient_overlap(
 async def test_response_rejects_bad_days_and_method(
     training_client: TestClient,
 ) -> None:
+    headers = await _auth_headers()
     assert (
-        training_client.get(f"{TRAINING}/response", params={"days": 10}).status_code
+        training_client.get(
+            f"{TRAINING}/response", params={"days": 10}, headers=headers
+        ).status_code
         == 422
     )
     assert (
         training_client.get(
-            f"{TRAINING}/response", params={"method": "kendall"}
+            f"{TRAINING}/response", params={"method": "kendall"}, headers=headers
         ).status_code
         == 422
     )

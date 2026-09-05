@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
 import type {
   EChartsOption,
   TooltipComponentFormatterCallbackParams,
 } from "echarts";
+import { authFetch } from "../lib/api";
+import { useSession } from "../lib/auth";
 
 const HEART_RATE_URL = "/api/v1/metrics/heart_rate?last_hours=24&bucket=5m";
 
@@ -83,8 +86,13 @@ function parseHeartRateResponse(raw: unknown): HeartRatePayload {
   };
 }
 
+/**
+ * Authenticated read (spec §122: health data answers the owner only). A 401
+ * also lands here as an error, but authFetch has already routed the browser
+ * to /login — the session is dead, not the request.
+ */
 async function fetchHeartRate(): Promise<HeartRatePayload> {
-  const res = await fetch(HEART_RATE_URL, { credentials: "same-origin" });
+  const res = await authFetch(HEART_RATE_URL);
   if (!res.ok) {
     throw new Error(`API responded with ${res.status}`);
   }
@@ -217,12 +225,14 @@ function buildChartOption(
 }
 
 export default function HeartRateCard() {
+  const { ready, token } = useSession();
   const schemeVersion = useColorSchemeVersion();
   const palette = useMemo(readPalette, [schemeVersion]);
 
   const query = useQuery({
     queryKey: ["metrics", "heart_rate", { lastHours: 24, bucket: "5m" }],
     queryFn: fetchHeartRate,
+    enabled: ready && token !== null,
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
@@ -282,7 +292,7 @@ export default function HeartRateCard() {
         )}
       </header>
 
-      {query.isPending && (
+      {!ready && (
         <div className="skeleton" role="status" aria-label="Loading heart-rate data">
           <div className="skeleton-bar" style={{ width: "38%" }} />
           <div className="skeleton-chart" />
@@ -290,7 +300,27 @@ export default function HeartRateCard() {
         </div>
       )}
 
-      {query.isError && (
+      {ready && token === null && (
+        <div className="state">
+          <p className="state-message">
+            Sign in to see your heart-rate data — health reads answer the
+            owner&apos;s session only.
+          </p>
+          <Link href="/login/" className="btn">
+            Sign in
+          </Link>
+        </div>
+      )}
+
+      {ready && token !== null && query.isPending && (
+        <div className="skeleton" role="status" aria-label="Loading heart-rate data">
+          <div className="skeleton-bar" style={{ width: "38%" }} />
+          <div className="skeleton-chart" />
+          <div className="skeleton-bar" style={{ width: "56%" }} />
+        </div>
+      )}
+
+      {ready && token !== null && query.isError && (
         <div className="state" role="alert">
           <p className="state-message">
             Could not load heart-rate data — {errorReason}. The API may be

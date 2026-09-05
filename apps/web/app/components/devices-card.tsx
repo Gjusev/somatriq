@@ -116,8 +116,8 @@ function DeviceRow({ device, now }: { device: DeviceInfo; now: number }) {
 /**
  * Device roster (GET /api/v1/devices, account JWT). Handles its own auth
  * states: sign-in prompt when no token, quiet skeleton while the session
- * settles, empty state pointing at /pairing. The heart-rate card above stays
- * deliberately unauthenticated — the metric endpoint is public today.
+ * settles, empty state pointing at /pairing. The data cards follow the same
+ * pattern — every read answers the owner's session (spec §122).
  */
 export default function DevicesCard() {
   const { ready, token } = useSession();

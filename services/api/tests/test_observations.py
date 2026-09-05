@@ -4,8 +4,9 @@ are Observations).
 
 The three ingest endpoints reuse the heart-rate slice's ADR 0006 discipline
 (batch UUID replay, forensic content hash, per-record natural-key dedup,
-device-token principals); the three reads are unauthenticated like the other
-metric reads. Routers are wired into the app in main.py.
+device-token principals); the three reads are behind the account JWT like
+the other metric reads (spec §122). Routers are wired into the app in
+main.py.
 """
 
 import uuid
@@ -15,6 +16,7 @@ from typing import TypeVar, cast
 
 import httpx
 import pytest
+from somatriq_api.accounts import require_account_jwt
 from somatriq_api.main import app
 from somatriq_api.security import require_ingest_principal
 from somatriq_db.engine import get_engine
@@ -46,14 +48,20 @@ async def _dispose_engine_pool() -> AsyncIterator[None]:
 
 
 @pytest.fixture()
-async def api(db: AsyncSession) -> AsyncIterator[httpx.AsyncClient]:
-    """Client with the ingest guard bypassed via dependency override."""
+async def api(
+    db: AsyncSession, account_jwt_override: Callable[[], uuid.UUID]
+) -> AsyncIterator[httpx.AsyncClient]:
+    """Client with the ingest guard AND the read guard bypassed via
+    dependency overrides (read semantics are the subject here; the 401
+    contract lives in test_read_auth.py)."""
     app.dependency_overrides[require_ingest_principal] = lambda: None
+    app.dependency_overrides[require_account_jwt] = account_jwt_override
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://testserver"
     ) as client:
         yield client
     app.dependency_overrides.pop(require_ingest_principal, None)
+    app.dependency_overrides.pop(require_account_jwt, None)
 
 
 @pytest.fixture()
@@ -142,16 +150,20 @@ def _rr_payload(batch_id: str, records: list[dict[str, object]]) -> dict[str, ob
     }
 
 
-async def _pair_device(client: httpx.AsyncClient, name: str = "pixel-obs") -> tuple[str, str]:
-    """Register + pair; returns (device_token, device_id) for row assertions."""
+async def _pair_device(
+    client: httpx.AsyncClient, name: str = "pixel-obs"
+) -> tuple[str, str, str]:
+    """Register + pair; returns (device_token, device_id, account_jwt) — the
+    account JWT rides the owner-side reads (spec §122)."""
     register = await client.post(
         "/api/v1/auth/register",
         json={"username": "obs-user", "password": "correct-horse-battery"},
     )
     assert register.status_code == 200, register.text
+    account_jwt = str(register.json()["access_token"])
     session = await client.post(
         "/api/v1/pairing/sessions",
-        headers={"Authorization": f"Bearer {register.json()['access_token']}"},
+        headers={"Authorization": f"Bearer {account_jwt}"},
     )
     assert session.status_code == 200, session.text
     confirmed = await client.post(
@@ -160,7 +172,7 @@ async def _pair_device(client: httpx.AsyncClient, name: str = "pixel-obs") -> tu
     )
     assert confirmed.status_code == 200, confirmed.text
     body = confirmed.json()
-    return str(body["token"]), str(body["device_id"])
+    return str(body["token"]), str(body["device_id"]), account_jwt
 
 
 # ── daily observations: ingest ──────────────────────────────────────────
@@ -276,7 +288,7 @@ async def test_daily_observations_device_token_principal(
     guarded_api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     """Bearer sqt_dev_… writes land under the paired device, not the seed."""
-    token, device_id = await _pair_device(guarded_api)
+    token, device_id, _ = await _pair_device(guarded_api)
     body = _daily_payload(str(uuid.uuid4()), [_daily_item(_today_utc(), "steps", 9000.0)])
 
     response = await guarded_api.post(
@@ -441,7 +453,7 @@ async def test_sleep_sessions_device_token_principal(
     guarded_api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     """Bearer sqt_dev_… sessions land under the paired device."""
-    token, device_id = await _pair_device(guarded_api)
+    token, device_id, _ = await _pair_device(guarded_api)
     start = datetime(2026, 9, 1, 22, 0, tzinfo=UTC)
     body = _sleep_payload(
         str(uuid.uuid4()), [_session_dict("sleep-1", start, [("deep", 45)])]
@@ -563,7 +575,7 @@ async def test_rr_intervals_device_token_principal(
     guarded_api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     """Bearer sqt_dev_… RR rows land under the paired device."""
-    token, device_id = await _pair_device(guarded_api)
+    token, device_id, _ = await _pair_device(guarded_api)
     base = datetime(2026, 9, 2, 6, 0, 0, tzinfo=UTC)
     body = _rr_payload(str(uuid.uuid4()), [_rr_record(1, base)])
 
@@ -622,11 +634,12 @@ async def test_daily_read_lists_only_present_days(api: httpx.AsyncClient) -> Non
 
 @requires_db
 async def test_daily_read_prefers_freshest_device_report(guarded_api: httpx.AsyncClient) -> None:
-    """Two devices reporting the same (day, metric): latest received wins."""
+    """Two devices reporting the same (day, metric): latest received wins.
+    The read rides the REAL account-JWT guard (spec §122)."""
     day = _today_utc()
     seed_report = _daily_payload(str(uuid.uuid4()), [_daily_item(day, "resting_hr", 50.0)])
     assert (await guarded_api.post(DAILY_INGEST_PATH, json=seed_report)).status_code == 200
-    token, _device_id = await _pair_device(guarded_api)
+    token, _device_id, account_jwt = await _pair_device(guarded_api)
     paired_report = _daily_payload(str(uuid.uuid4()), [_daily_item(day, "resting_hr", 55.0)])
     assert (
         await guarded_api.post(
@@ -636,7 +649,14 @@ async def test_daily_read_prefers_freshest_device_report(guarded_api: httpx.Asyn
         )
     ).status_code == 200
 
-    response = await guarded_api.get(DAILY_READ_PATH, params={"days": 14})
+    unauthenticated = await guarded_api.get(DAILY_READ_PATH, params={"days": 14})
+    assert unauthenticated.status_code == 401
+    response = await guarded_api.get(
+        DAILY_READ_PATH,
+        params={"days": 14},
+        headers={"Authorization": f"Bearer {account_jwt}"},
+    )
+    assert response.status_code == 200
     metrics = response.json()["days"][0]["metrics"]
     assert metrics["resting_hr"] == 55.0
 

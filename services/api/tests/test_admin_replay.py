@@ -195,8 +195,9 @@ async def test_recompute_daily_invalidates_closed_days(
     """§140 bounded reprocessing: the admin drops cached daily rows; the next
     /metrics/daily read materializes them fresh (caught live in production —
     closed days cached before a late backfill stay pinned otherwise)."""
-    # Materialize whatever is cached for the window first.
-    seeded = await api.get("/api/v1/metrics/daily?days=14")
+    # Materialize whatever is cached for the window first (reads carry the
+    # account JWT like every data read, spec §122).
+    seeded = await api.get("/api/v1/metrics/daily?days=14", headers=account_headers)
     assert seeded.status_code == 200
 
     response = await api.post("/api/v1/admin/recompute/daily?days=14", headers=account_headers)
@@ -204,6 +205,6 @@ async def test_recompute_daily_invalidates_closed_days(
     body = response.json()
     assert body["invalidated_days"] >= 0  # empty DB day rows count is 0..14
 
-    after = await api.get("/api/v1/metrics/daily?days=14")
+    after = await api.get("/api/v1/metrics/daily?days=14", headers=account_headers)
     assert after.status_code == 200
     assert len(after.json()["days"]) == 14  # rematerialized in one read

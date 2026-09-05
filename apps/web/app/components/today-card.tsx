@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { fetchToday } from "../lib/api";
+import { useSession } from "../lib/auth";
 import type {
   ContributionTone,
   RecoveryContribution,
@@ -163,9 +165,12 @@ function ContributionList({ contributions }: { contributions: RecoveryContributi
 }
 
 export default function TodayCard() {
+  const { ready, token } = useSession();
+
   const query = useQuery({
     queryKey: ["metrics", "today"],
     queryFn: fetchToday,
+    enabled: ready && token !== null,
     staleTime: 60_000,
     refetchInterval: 120_000,
   });
@@ -192,7 +197,7 @@ export default function TodayCard() {
         )}
       </header>
 
-      {query.isPending && (
+      {!ready && (
         <div className="skeleton" role="status" aria-label="Loading today's summary">
           <div className="skeleton-bar" style={{ width: "38%" }} />
           <div className="skeleton-bar" style={{ width: "72%" }} />
@@ -200,7 +205,27 @@ export default function TodayCard() {
         </div>
       )}
 
-      {query.isError && (
+      {ready && token === null && (
+        <div className="state">
+          <p className="state-message">
+            Sign in to see your recovery, sleep and HRV — health reads answer
+            the owner&apos;s session only.
+          </p>
+          <Link href="/login/" className="btn">
+            Sign in
+          </Link>
+        </div>
+      )}
+
+      {ready && token !== null && query.isPending && (
+        <div className="skeleton" role="status" aria-label="Loading today's summary">
+          <div className="skeleton-bar" style={{ width: "38%" }} />
+          <div className="skeleton-bar" style={{ width: "72%" }} />
+          <div className="skeleton-bar" style={{ width: "56%" }} />
+        </div>
+      )}
+
+      {ready && token !== null && query.isError && (
         <div className="state" role="alert">
           <p className="state-message">
             Could not load today&apos;s summary — {errorReason}. The API may be

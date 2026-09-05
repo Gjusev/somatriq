@@ -8,7 +8,7 @@ somatriq_recovery_v1 formula.
 """
 
 import uuid
-from collections.abc import AsyncIterator, Iterable, Iterator, Sequence
+from collections.abc import AsyncIterator, Callable, Iterable, Iterator, Sequence
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -17,6 +17,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from somatriq_api import today
+from somatriq_api.accounts import require_account_jwt
 from somatriq_api.today import router as today_router
 from somatriq_db.engine import get_engine, get_session
 from somatriq_db.models import Device, User
@@ -54,8 +55,13 @@ async def fresh_connection_pool() -> AsyncIterator[None]:
 
 
 @pytest.fixture()
-def today_client(db: AsyncSession) -> Iterator[TestClient]:
-    """App with only the today router, served through a per-test engine."""
+def today_client(
+    db: AsyncSession, account_jwt_override: Callable[[], uuid.UUID]
+) -> Iterator[TestClient]:
+    """App with only the today router, served through a per-test engine.
+
+    The JWT guard is overridden (spec §122 reads are owner-only; the 401
+    contract itself lives in test_read_auth.py)."""
     engine: AsyncEngine | None = None
 
     async def override_get_session() -> AsyncIterator[AsyncSession]:
@@ -74,6 +80,7 @@ def today_client(db: AsyncSession) -> Iterator[TestClient]:
     app = FastAPI(lifespan=lifespan)
     app.include_router(today_router)
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[require_account_jwt] = account_jwt_override
     with TestClient(app) as client:
         yield client
 

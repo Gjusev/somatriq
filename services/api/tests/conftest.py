@@ -10,14 +10,15 @@ Tests auto-skip when the database is unreachable (CI unit job has no DB).
 """
 
 import os
-from collections.abc import AsyncIterator, Iterator
+import uuid
+from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 
 import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -29,6 +30,7 @@ os.environ["DATABASE_URL"] = TEST_DATABASE_URL  # before somatriq_db/engine impo
 
 from somatriq_api.settings import get_settings  # noqa: E402
 from somatriq_db.engine import get_session_factory  # noqa: E402
+from somatriq_db.models import User  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -100,3 +102,39 @@ def client(db: AsyncSession) -> Iterator[TestClient]:
 
     with TestClient(app) as test_client:
         yield test_client
+
+
+# ── read-route auth (spec §122) ───────────────────────────────────────────
+#
+# Every data read is behind the account JWT now. Tests exercise that guard
+# two ways, deliberately split:
+#
+# * Router-slice apps (the per-file FastAPI() fixtures with a single router
+#   included) wire `account_jwt_override` into their dependency_overrides —
+#   the guard is bypassed there because those files test the read SEMANTICS
+#   (bucket math, DST windows, honesty shapes), not the auth surface.
+# * The full main app (test_auth, test_observations guarded_api, test_read_auth)
+#   keeps the REAL guard: test_read_auth.py pins the 401 flat body once for
+#   every read path, and minting/expiry/audience are test_auth.py's contract.
+
+
+@pytest.fixture()
+async def seeded_user_id(db: AsyncSession) -> uuid.UUID:
+    """The seeded single local user — the principal every read serves."""
+    return (
+        await db.execute(select(User.id).order_by(User.created_at).limit(1))
+    ).scalar_one()
+
+
+@pytest.fixture()
+def account_jwt_override(
+    seeded_user_id: uuid.UUID,
+) -> Callable[[], uuid.UUID]:
+    """Dependency override for require_account_jwt.
+
+    Usage in a router-slice app fixture:
+
+        from somatriq_api.accounts import require_account_jwt
+        app.dependency_overrides[require_account_jwt] = account_jwt_override
+    """
+    return lambda: seeded_user_id

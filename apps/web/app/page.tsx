@@ -23,7 +23,8 @@ type ApiStatus = "checking" | "reachable" | "unreachable";
  * and the §80 training-vs-next-day-recovery response, correlational like
  * the matrix. The Data card (M13) closes the loop on ownership — CSV import
  * preview-first (§129) and full exports (§130), login-gated like devices.
- * The metric endpoints are unauthenticated today.
+ * Every data card is login-gated (spec §122): health reads answer the
+ * owner's session only; the health-status fetch above stays public.
  */
 export default function HomePage() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
