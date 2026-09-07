@@ -19,8 +19,8 @@ Honesty rules held here (spec §81-82, §88):
   outliers and non-normal daily values wearable data produces (spec §88 —
   simple and honest beats elaborate). Pearson stays one parameter away.
 
-Reads are behind the account JWT like the other metric reads (spec §122):
-coefficients over the owner's health data answer the owner's web session,
+Reads are behind the account JWT or a data.read-scoped device token (spec
+§122): coefficients over the owner's health data answer the owner only,
 never the bare URL.
 """
 
@@ -51,8 +51,8 @@ from somatriq_contracts.errors import ErrorCode
 from somatriq_db.engine import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .accounts import AccountJwtDep
 from .errors import ApiError
+from .security import ReadUserDep
 from .settings import get_settings
 
 router = APIRouter(prefix="/api/v1/correlations", tags=["correlations"])
@@ -114,7 +114,7 @@ def _insufficient_reason(n: int) -> str:
     response_model=PairCorrelationResponse | PairInsufficientResponse,
 )
 async def read_pair(
-    user_id: AccountJwtDep,
+    user_id: ReadUserDep,
     session: Annotated[AsyncSession, Depends(get_session)],
     metric_a: Annotated[str, Query(min_length=1, max_length=64)],
     metric_b: Annotated[str, Query(min_length=1, max_length=64)],
@@ -186,7 +186,7 @@ class MatrixResponse(BaseModel):
 
 @router.get("/matrix", response_model=MatrixResponse)
 async def read_matrix(
-    user_id: AccountJwtDep,
+    user_id: ReadUserDep,
     session: Annotated[AsyncSession, Depends(get_session)],
     days: Annotated[int, Query(ge=14, le=365)] = 90,
     method: Annotated[Method, Query(pattern="^(pearson|spearman)$")] = "spearman",

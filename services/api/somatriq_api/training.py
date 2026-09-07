@@ -17,8 +17,9 @@ Honesty rules held here (spec §81-82):
 * summaries are computed LIVE on every read — nothing derived is persisted
   (ADR 0012 spirit).
 
-Auth: every surface — writes and reads — requires the account JWT (spec
-§122): strength data answers the owner's web session, never the bare URL.
+Auth: writes require the account JWT (spec §122); reads accept the account
+JWT or a data.read-scoped device token (the owner's dashboard client).
+Strength data answers the owner only, never the bare URL.
 """
 
 import uuid
@@ -58,6 +59,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .accounts import AccountJwtDep
 from .errors import ApiError
+from .security import ReadUserDep
 from .settings import get_settings
 
 router = APIRouter(prefix="/api/v1/training", tags=["training"])
@@ -274,13 +276,13 @@ async def create_training_session(
 
 @router.get("/sessions", response_model=TrainingSessionListResponse)
 async def list_training_sessions(
-    user_id: AccountJwtDep,
+    user_id: ReadUserDep,
     session: SessionDep,
     days: Annotated[int, Query(ge=1, le=365)] = _DEFAULT_DAYS,
 ) -> TrainingSessionListResponse:
     """Sessions over the last ``days`` local days with live summaries and
-    weekly (ISO-week) tonnage / hard-set aggregates; account JWT required
-    (spec §122), scoped to the authenticated user."""
+    weekly (ISO-week) tonnage / hard-set aggregates; account JWT or
+    data.read device token (spec §122), scoped to the authenticated user."""
     tz = ZoneInfo(get_settings().user_timezone)
     cutoff = datetime.now(UTC) - timedelta(days=days)
     sessions = list(
@@ -334,7 +336,7 @@ async def list_training_sessions(
 
 @router.get("/response", response_model=TrainingResponseResponse)
 async def read_training_response(
-    user_id: AccountJwtDep,
+    user_id: ReadUserDep,
     session: SessionDep,
     days: Annotated[int, Query(ge=14, le=365)] = 90,
     method: Annotated[Method, Query(pattern="^(pearson|spearman)$")] = "spearman",

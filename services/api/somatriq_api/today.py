@@ -19,7 +19,7 @@ from somatriq_contracts.recovery import TodayResponse
 from somatriq_db.engine import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .accounts import AccountJwtDep
+from .security import ReadUserDep
 from .settings import get_settings
 
 router = APIRouter(prefix="/api/v1/metrics", tags=["today"])
@@ -32,15 +32,15 @@ def _now() -> datetime:
 
 @router.get("/today", response_model=TodayResponse)
 async def read_today(
-    user_id: AccountJwtDep,
+    user_id: ReadUserDep,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> TodayResponse:
     """Today's sleep, HRV, resting HR and explainable recovery (spec §76).
 
-    Account JWT required like the other reads (spec §122). The recovery
-    result is always present — with missing_inputs listed and a null score
-    when the day has not earned one — because the explainability surface is
-    the point.
+    Account JWT or data.read device token (spec §122) — the owner's read.
+    The recovery result is always present — with missing_inputs listed and a
+    null score when the day has not earned one — because the explainability
+    surface is the point.
     """
     tz = ZoneInfo(get_settings().user_timezone)
     data = await assemble_today(session, tz=tz, now=_now())

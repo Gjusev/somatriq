@@ -44,7 +44,7 @@ from somatriq_api.ingest_common import (
     replayed_ack_or_none,
     resolve_identity,
 )
-from somatriq_api.security import require_ingest_principal
+from somatriq_api.security import ReadUserDep, require_ingest_principal
 from somatriq_api.settings import get_settings
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -380,14 +380,15 @@ class SleepSessionsResponse(BaseModel):
 
 @sleep_router.get("/sessions", response_model=SleepSessionsResponse)
 async def read_sleep_sessions(
-    user_id: AccountJwtDep,
+    user_id: ReadUserDep,
     session: SessionDep,
     days: Annotated[int, Query(ge=1, le=120)] = 14,
 ) -> SleepSessionsResponse:
     """Sleep sessions starting within the last ``days`` days, ascending by
-    start_ts, stages nested and counted; account JWT required (spec §122).
-    Duplicate reports of the same (source_record_id, start_ts) across
-    devices resolve to the most recently received copy, stages included."""
+    start_ts, stages nested and counted; account JWT or data.read device
+    token (spec §122). Duplicate reports of the same (source_record_id,
+    start_ts) across devices resolve to the most recently received copy,
+    stages included."""
     cutoff = datetime.now(UTC) - timedelta(days=days)
 
     result = await session.execute(

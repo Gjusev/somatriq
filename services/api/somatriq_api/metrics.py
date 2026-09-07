@@ -31,7 +31,7 @@ from somatriq_db.engine import get_session
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .accounts import AccountJwtDep
+from .security import ReadUserDep
 from .settings import get_settings
 
 router = APIRouter(prefix="/api/v1/metrics", tags=["metrics"])
@@ -55,11 +55,12 @@ _BUCKET_SECONDS: Final[dict[str, int]] = {"1m": 60, "5m": 300, "1h": 3600}
 @router.get("/heart_rate", response_model=MetricSeriesResponse)
 async def read_heart_rate(
     request: Annotated[MetricSeriesRequest, Query()],
-    user_id: AccountJwtDep,
+    user_id: ReadUserDep,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MetricSeriesResponse:
     """Viewport-appropriate heart-rate series (spec §71, §116); account JWT
-    required (spec §122) — health reads answer the owner only."""
+    or data.read device token (spec §122) — health reads answer the owner
+    only."""
     start, end = _resolve_window(request, datetime.now(UTC))
     window_seconds = (end - start).total_seconds()
 
@@ -385,7 +386,7 @@ async def _persist_days(
 
 @router.get("/daily", response_model=DailySummaryResponse)
 async def read_daily_summary(
-    user_id: AccountJwtDep,
+    user_id: ReadUserDep,
     session: Annotated[AsyncSession, Depends(get_session)],
     days: Annotated[int, Query(ge=1, le=120)] = 14,
 ) -> DailySummaryResponse:

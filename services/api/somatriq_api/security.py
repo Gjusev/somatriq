@@ -16,10 +16,15 @@ The M1 production guard stays: no credentials presented at all and no
 INGEST_TOKEN configured in production → 503, never silent open writes. In
 development with no INGEST_TOKEN, unauthenticated writes keep the M1
 behavior of resolving the seeded single user.
+
+require_read_principal is the READ-side sibling: the account JWT (spec
+§122) or a data.read-scoped device token — the Android dashboard client —
+resolving to the owner's user_id for the owner-only read endpoints.
 """
 
 from datetime import UTC, datetime
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, Header, Request
 from somatriq_contracts.errors import ErrorCode
@@ -29,11 +34,16 @@ from somatriq_db.models import Device, DeviceToken
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from somatriq_api.accounts import hash_device_token, resolve_single_user_target
+from somatriq_api.accounts import (
+    hash_device_token,
+    require_account_jwt,
+    resolve_single_user_target,
+)
 from somatriq_api.errors import ApiError
 from somatriq_api.settings import get_settings
 
 INGEST_WRITE_SCOPE = "ingest.write"
+DATA_READ_SCOPE = "data.read"
 
 
 def _bearer_token(authorization: str | None) -> str | None:
@@ -88,9 +98,12 @@ async def require_ingest_principal(
     await _apply_single_user_context(request, session)
 
 
-async def _authenticate_device_token(
-    request: Request, session: AsyncSession, token: str
-) -> None:
+async def _verified_device_token(
+    session: AsyncSession, token: str, required_scope: str
+) -> DeviceToken:
+    """Hash-lookup + revoked/expired/scope gate, shared by every device-token
+    guard (ingest write, data read). Unknown/expired → 401 AUTHENTICATION;
+    revoked → 403 DEVICE_REVOKED; missing scope → 403 AUTHORIZATION."""
     token_row = (
         await session.execute(
             select(DeviceToken).where(DeviceToken.token_hash == hash_device_token(token))
@@ -109,12 +122,25 @@ async def _authenticate_device_token(
         raise ApiError(
             status_code=401, code=ErrorCode.AUTHENTICATION, message="expired device token"
         )
-    if INGEST_WRITE_SCOPE not in (token_row.scopes or []):
+    if required_scope not in (token_row.scopes or []):
         raise ApiError(
             status_code=403,
             code=ErrorCode.AUTHORIZATION,
-            message=f"device token lacks the {INGEST_WRITE_SCOPE} scope",
+            message=f"device token lacks the {required_scope} scope",
         )
+    return token_row
+
+
+async def _touch_device_token(session: AsyncSession, token_row: DeviceToken) -> None:
+    """Fire-and-forget bookkeeping; nothing else is pending on this session."""
+    token_row.last_used_at = datetime.now(UTC)
+    await session.commit()
+
+
+async def _authenticate_device_token(
+    request: Request, session: AsyncSession, token: str
+) -> None:
+    token_row = await _verified_device_token(session, token, INGEST_WRITE_SCOPE)
 
     device = (
         await session.execute(select(Device).where(Device.id == token_row.device_id))
@@ -122,9 +148,31 @@ async def _authenticate_device_token(
     request.state.user_id = device.user_id
     request.state.device_id = device.id
     request.state.device_name = device.name
-    # Fire-and-forget bookkeeping; nothing else is pending on this session.
-    token_row.last_used_at = now
-    await session.commit()
+    await _touch_device_token(session, token_row)
+
+
+async def require_read_principal(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> UUID:
+    """Owner-read guard: the account JWT (spec §122, unchanged) OR a device
+    token (Authorization: Bearer sqt_dev_…, same convention as ingest) whose
+    scopes include data.read — resolved to the token owner's user_id."""
+    bearer = _bearer_token(authorization)
+
+    if bearer is not None and bearer.startswith(DEVICE_TOKEN_PREFIX):
+        token_row = await _verified_device_token(session, bearer, DATA_READ_SCOPE)
+        device = (
+            await session.execute(select(Device).where(Device.id == token_row.device_id))
+        ).scalar_one()
+        await _touch_device_token(session, token_row)
+        return device.user_id
+
+    # Byte-identical account-JWT path — including its flat 401s.
+    return await require_account_jwt(authorization)
+
+
+ReadUserDep = Annotated[UUID, Depends(require_read_principal)]
 
 
 async def _apply_single_user_context(request: Request, session: AsyncSession) -> None:

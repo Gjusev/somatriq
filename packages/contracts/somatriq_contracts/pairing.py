@@ -9,10 +9,11 @@ Flow (spec §43, §180):
     create pairing session
     show code/QR      ───►   confirm code
     poll status              receive device token
-                            (scopes: ingest.write device.read sync.read)
+                            (scopes: ingest.write device.read sync.read data.read)
 
-The device token authorizes ingest; it never grants admin, arbitrary
-health reads, other-user access, or database access (spec §44).
+The device token authorizes ingest and, with data.read, the owner's own
+data via the read endpoints; it never grants admin, other-user access, or
+database access (spec §44).
 """
 
 import re
@@ -29,7 +30,9 @@ PAIRING_CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 PAIRING_CODE_LENGTH = 8
 PAIRING_TTL_MINUTES = 10
 
-DEVICE_SCOPES = ("ingest.write", "device.read", "sync.read")
+# data.read (M-dashboard): the device token may read the owner's data via the
+# read endpoints — never admin, pairing or other-user surfaces (spec §44).
+DEVICE_SCOPES = ("ingest.write", "device.read", "sync.read", "data.read")
 
 # Device token wire format: sqt_dev_ + 43 base64url chars (32 random bytes).
 DEVICE_TOKEN_PREFIX = "sqt_dev_"

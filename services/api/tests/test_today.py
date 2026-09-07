@@ -17,7 +17,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from somatriq_api import today
-from somatriq_api.accounts import require_account_jwt
+from somatriq_api.security import require_read_principal
 from somatriq_api.today import router as today_router
 from somatriq_db.engine import get_engine, get_session
 from somatriq_db.models import Device, User
@@ -80,7 +80,7 @@ def today_client(
     app = FastAPI(lifespan=lifespan)
     app.include_router(today_router)
     app.dependency_overrides[get_session] = override_get_session
-    app.dependency_overrides[require_account_jwt] = account_jwt_override
+    app.dependency_overrides[require_read_principal] = account_jwt_override
     with TestClient(app) as client:
         yield client
 

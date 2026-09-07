@@ -91,7 +91,12 @@ def main() -> int:
     )
     device_token = paired["token"]
     assert device_token.startswith("sqt_dev_"), f"device token shape: {device_token[:12]}…"
-    assert paired["scopes"] == ["ingest.write", "device.read", "sync.read"], paired["scopes"]
+    assert paired["scopes"] == [
+        "ingest.write",
+        "device.read",
+        "sync.read",
+        "data.read",
+    ], paired["scopes"]
     device_id = paired["device_id"]
     print(f"3) pairing confirm ok: device={device_id} scopes={paired['scopes']}")
 

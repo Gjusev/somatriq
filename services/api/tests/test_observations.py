@@ -18,7 +18,7 @@ import httpx
 import pytest
 from somatriq_api.accounts import require_account_jwt
 from somatriq_api.main import app
-from somatriq_api.security import require_ingest_principal
+from somatriq_api.security import require_ingest_principal, require_read_principal
 from somatriq_db.engine import get_engine
 from somatriq_db.testing import requires_db as _untyped_requires_db
 from sqlalchemy import text
@@ -56,12 +56,14 @@ async def api(
     contract lives in test_read_auth.py)."""
     app.dependency_overrides[require_ingest_principal] = lambda: None
     app.dependency_overrides[require_account_jwt] = account_jwt_override
+    app.dependency_overrides[require_read_principal] = account_jwt_override
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://testserver"
     ) as client:
         yield client
     app.dependency_overrides.pop(require_ingest_principal, None)
     app.dependency_overrides.pop(require_account_jwt, None)
+    app.dependency_overrides.pop(require_read_principal, None)
 
 
 @pytest.fixture()

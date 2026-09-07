@@ -106,16 +106,21 @@ def client(db: AsyncSession) -> Iterator[TestClient]:
 
 # ── read-route auth (spec §122) ───────────────────────────────────────────
 #
-# Every data read is behind the account JWT now. Tests exercise that guard
-# two ways, deliberately split:
+# Every data read is behind the account JWT or a data.read device token
+# (require_read_principal). Tests exercise that guard two ways, deliberately
+# split:
 #
 # * Router-slice apps (the per-file FastAPI() fixtures with a single router
 #   included) wire `account_jwt_override` into their dependency_overrides —
-#   the guard is bypassed there because those files test the read SEMANTICS
-#   (bucket math, DST windows, honesty shapes), not the auth surface.
-# * The full main app (test_auth, test_observations guarded_api, test_read_auth)
-#   keeps the REAL guard: test_read_auth.py pins the 401 flat body once for
-#   every read path, and minting/expiry/audience are test_auth.py's contract.
+#   keyed on require_read_principal for the read routes (still on
+#   require_account_jwt for JWT-only surfaces like the observations daily/rr
+#   reads). The guard is bypassed there because those files test the read
+#   SEMANTICS (bucket math, DST windows, honesty shapes), not the auth surface.
+# * The full main app (test_auth, test_observations guarded_api, test_read_auth,
+#   test_device_read_auth) keeps the REAL guard: test_read_auth.py pins the
+#   401 flat body once for every read path, test_device_read_auth.py pins the
+#   device-token principal, and minting/expiry/audience are test_auth.py's
+#   contract.
 
 
 @pytest.fixture()

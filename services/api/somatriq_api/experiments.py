@@ -53,6 +53,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .accounts import AccountJwtDep
 from .errors import ApiError
+from .security import ReadUserDep
 from .settings import get_settings
 
 router = APIRouter(prefix="/api/v1/experiments", tags=["experiments"])
@@ -423,11 +424,11 @@ async def create_experiment(
 @router.get("", response_model=list[ExperimentResponse])
 @router.get("/", response_model=list[ExperimentResponse])
 async def list_experiments(
-    user_id: AccountJwtDep, session: SessionDep
+    user_id: ReadUserDep, session: SessionDep
 ) -> list[ExperimentResponse]:
     """Every experiment with live progress, compliance and (once completed)
-    the evaluation — account JWT required (spec §122), scoped to the
-    authenticated user."""
+    the evaluation — account JWT or data.read device token (spec §122),
+    scoped to the authenticated user."""
     tz = ZoneInfo(get_settings().user_timezone)
     today = _local_today(tz)
     experiments = list(
@@ -456,11 +457,11 @@ async def list_experiments(
 
 @router.get("/{experiment_id}", response_model=ExperimentResponse)
 async def read_experiment(
-    experiment_id: uuid.UUID, user_id: AccountJwtDep, session: SessionDep
+    experiment_id: uuid.UUID, user_id: ReadUserDep, session: SessionDep
 ) -> ExperimentResponse:
     """One experiment: current phase, compliance, and (once completed) the
-    evaluation computed live on this read; account JWT required (spec §122),
-    scoped to the authenticated user."""
+    evaluation computed live on this read; account JWT or data.read device
+    token (spec §122), scoped to the authenticated user."""
     tz = ZoneInfo(get_settings().user_timezone)
     experiment = await _fetch_experiment(session, experiment_id, user_id)
     await roll_forward(session, experiment, _local_today(tz), tz)
