@@ -39,6 +39,7 @@ DEVICE_READ_PATHS: list[tuple[str, dict[str, str]]] = [
     ("/api/v1/training/sessions", {}),
     ("/api/v1/training/response", {}),
     ("/api/v1/experiments", {}),
+    ("/api/v1/notifications/recent", {}),
 ]
 
 

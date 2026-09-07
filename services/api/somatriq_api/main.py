@@ -71,6 +71,7 @@ from somatriq_api import (  # noqa: E402
     imports,
     ingest,
     metrics,
+    notifications,
     observations,
     pairing,
     today,
@@ -88,6 +89,7 @@ app.include_router(observations.sleep_router)
 app.include_router(observations.rr_router)
 app.include_router(metrics.router)
 app.include_router(today.router)
+app.include_router(notifications.router)
 app.include_router(correlations.router)
 app.include_router(coach.router)
 app.include_router(experiments.router)
