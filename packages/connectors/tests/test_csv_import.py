@@ -72,16 +72,13 @@ def test_header_only_file_is_a_clean_error() -> None:
         parse_daily_csv(";;;")
 
 
-
 def test_garbage_binary_is_a_clean_error() -> None:
     with pytest.raises(CsvImportError):
         parse_daily_csv("\x00\x01\x02")
 
 
 def test_unparseable_date_row_warns_with_line_number() -> None:
-    result = parse_daily_csv(
-        "date,weight_kg\n2026-01-05,80.0\nJan 5,81.0\n2026-01-07,82.0\n"
-    )
+    result = parse_daily_csv("date,weight_kg\n2026-01-05,80.0\nJan 5,81.0\n2026-01-07,82.0\n")
     assert len(result.rows) == 2
     assert [(w.line, w.reason) for w in result.warnings] == [
         (3, "unparseable date 'Jan 5' — row skipped")
@@ -103,9 +100,7 @@ def test_multi_comma_value_is_not_a_guessed_number() -> None:
 
 
 def test_weight_range_gate_warns_and_skips() -> None:
-    result = parse_daily_csv(
-        "date,weight_kg\n2026-01-05,420.0\n2026-01-06,20.0\n2026-01-07,80.0\n"
-    )
+    result = parse_daily_csv("date,weight_kg\n2026-01-05,420.0\n2026-01-06,20.0\n2026-01-07,80.0\n")
     assert [(row.day, row.value) for row in result.rows] == [(date(2026, 1, 7), 80.0)]
     assert [w.line for w in result.warnings] == [2, 3]
     assert all("weight_kg" in w.reason for w in result.warnings)
@@ -118,9 +113,7 @@ def test_body_fat_range_gate_warns_and_skips() -> None:
 
 
 def test_in_file_duplicates_counted_last_wins() -> None:
-    result = parse_daily_csv(
-        "date,weight_kg\n2026-01-05,80.0\n2026-01-05,81.5\n2026-01-06,82.0\n"
-    )
+    result = parse_daily_csv("date,weight_kg\n2026-01-05,80.0\n2026-01-05,81.5\n2026-01-06,82.0\n")
     assert [(row.day, row.value) for row in result.rows] == [
         (date(2026, 1, 5), 81.5),
         (date(2026, 1, 6), 82.0),
@@ -183,9 +176,7 @@ def test_preview_warning_list_is_capped_total_travels_alongside() -> None:
 
 
 def test_preview_counts_already_present_pairs() -> None:
-    parse = parse_daily_csv(
-        "date,weight_kg,steps\n2026-01-05,80.0,9000\n2026-01-06,81.0,9100\n"
-    )
+    parse = parse_daily_csv("date,weight_kg,steps\n2026-01-05,80.0,9000\n2026-01-06,81.0,9100\n")
     existing = frozenset({(date(2026, 1, 5), "weight_kg"), (date(2026, 1, 6), "steps")})
     preview = build_preview(parse, existing)
     assert preview.duplicates.already_present == 2

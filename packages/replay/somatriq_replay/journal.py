@@ -39,9 +39,7 @@ class JournalReport:
 
 def decompress(blob: bytes) -> bytes:
     try:
-        return zstandard.ZstdDecompressor().decompress(
-            blob, max_output_size=256 * 1024 * 1024
-        )
+        return zstandard.ZstdDecompressor().decompress(blob, max_output_size=256 * 1024 * 1024)
     except zstandard.ZstdError as exc:
         msg = f"blob is not valid zstd: {exc}"
         raise JournalError(msg) from exc

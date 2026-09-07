@@ -97,8 +97,7 @@ async def test_journal_event_row_shape(db: AsyncSession) -> None:
 
     result = await db.execute(
         text(
-            "SELECT kind, source, ts::date, text, structured "
-            "FROM health.journal_events ORDER BY ts"
+            "SELECT kind, source, ts::date, text, structured FROM health.journal_events ORDER BY ts"
         )
     )
     rows = result.all()

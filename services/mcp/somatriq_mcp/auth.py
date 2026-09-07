@@ -83,9 +83,7 @@ class PatAuthMiddleware:
             )
             return
         except Exception:  # noqa: BLE001 - auth store down is 503, never a 500
-            await _flat_response(
-                send, 503, ErrorCode.RETRYABLE, "authentication store unavailable"
-            )
+            await _flat_response(send, 503, ErrorCode.RETRYABLE, "authentication store unavailable")
             return
 
         await self.app(scope, receive, send)

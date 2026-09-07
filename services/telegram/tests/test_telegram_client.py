@@ -51,9 +51,9 @@ class _FakeHTTPHandler(urllib.request.HTTPHandler):
         return _MockResponse(body)
 
 
-def _client(respond: Callable[[urllib.request.Request], tuple[int, bytes]]) -> tuple[
-    TelegramClient, _FakeHTTPHandler
-]:
+def _client(
+    respond: Callable[[urllib.request.Request], tuple[int, bytes]],
+) -> tuple[TelegramClient, _FakeHTTPHandler]:
     handler = _FakeHTTPHandler(respond)
     opener = urllib.request.build_opener(handler, urllib.request.ProxyHandler({}))
     return TelegramClient("secret-token", api_base=BASE, opener=opener), handler
@@ -94,9 +94,7 @@ def test_http_error_raises_telegram_error_without_token() -> None:
 
 
 def test_ok_false_raises_with_description() -> None:
-    client, _ = _client(
-        lambda req: (200, b'{"ok": false, "description": "chat not found"}')
-    )
+    client, _ = _client(lambda req: (200, b'{"ok": false, "description": "chat not found"}'))
     try:
         client.send_message(1, "x")
     except TelegramError as exc:

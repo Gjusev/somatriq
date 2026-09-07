@@ -191,9 +191,7 @@ async def test_change_password_wrong_current_401(api: httpx.AsyncClient) -> None
     assert response.status_code == 401
     assert response.json()["error_code"] == "INVALID_CREDENTIALS"
     # Nothing changed: the original passphrase still signs in.
-    again = await api.post(
-        LOGIN, json={"username": "local", "password": "correct-horse-battery"}
-    )
+    again = await api.post(LOGIN, json={"username": "local", "password": "correct-horse-battery"})
     assert again.status_code == 200
 
 

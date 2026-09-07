@@ -81,9 +81,7 @@ def _freeze_now(monkeypatch: pytest.MonkeyPatch, moment: datetime) -> None:
     monkeypatch.setattr(metrics, "_now", lambda: moment)
 
 
-async def _seed_samples(
-    db: AsyncSession, samples: Iterable[tuple[datetime, float]]
-) -> None:
+async def _seed_samples(db: AsyncSession, samples: Iterable[tuple[datetime, float]]) -> None:
     """Insert heart-rate rows directly, owned by the seeded single-user identity."""
     user_id = (await db.execute(select(User.id).limit(1))).scalar_one()
     device_id = (await db.execute(select(Device.id).limit(1))).scalar_one()
@@ -120,9 +118,9 @@ def _utc_day_samples(
 
 async def _daily_rows(db: AsyncSession) -> int:
     result = await db.execute(
-        select(func.count()).select_from(DailyFeature).where(
-            DailyFeature.feature_set_version == FEATURE_SET_VERSION
-        )
+        select(func.count())
+        .select_from(DailyFeature)
+        .where(DailyFeature.feature_set_version == FEATURE_SET_VERSION)
     )
     return result.scalar_one()
 
@@ -236,12 +234,8 @@ async def test_dst_fallback_madrid_days_are_correct(
 
     # 25 hours at one sample per minute (1500), then the next local day's
     # first hour at 1/minute starting exactly at local midnight (60).
-    fall_back_day = (
-        (day_start + timedelta(minutes=m), 60.0) for m in range(1500)
-    )
-    next_day = (
-        (day_end + timedelta(minutes=m), 70.0) for m in range(60)
-    )
+    fall_back_day = ((day_start + timedelta(minutes=m), 60.0) for m in range(1500))
+    next_day = ((day_end + timedelta(minutes=m), 70.0) for m in range(60))
     await _seed_samples(db, [*fall_back_day, *next_day])
 
     response = metrics_client.get("/api/v1/metrics/daily", params={"days": 2})
@@ -267,10 +261,7 @@ async def test_dst_fallback_madrid_days_are_correct(
         int,
         (
             await db.execute(
-                text(
-                    "SELECT count(*) FROM timeseries.heart_rate "
-                    "WHERE ts >= :start AND ts < :end"
-                ),
+                text("SELECT count(*) FROM timeseries.heart_rate WHERE ts >= :start AND ts < :end"),
                 {"start": day_start, "end": day_end},
             )
         ).scalar_one(),
@@ -340,6 +331,7 @@ async def test_days_param_bounds_422(
         response = metrics_client.get("/api/v1/metrics/daily", params={"days": days})
         assert response.status_code == 422, days
 
+
 async def test_open_day_refreshes_on_late_samples(
     metrics_client: TestClient, db: AsyncSession
 ) -> None:
@@ -350,10 +342,7 @@ async def test_open_day_refreshes_on_late_samples(
 
     def samples(tag: str, bpm: float, count: int, base: datetime) -> list[tuple[datetime, float]]:
         # count samples each in its OWN 5-minute bucket (distinct bucket starts)
-        return [
-            (base + timedelta(minutes=5 * i, seconds=1), bpm)
-            for i in range(count)
-        ]
+        return [(base + timedelta(minutes=5 * i, seconds=1), bpm) for i in range(count)]
 
     early = now - timedelta(hours=3)
     await _seed_samples(db, samples("early", 60.0, 30, early))

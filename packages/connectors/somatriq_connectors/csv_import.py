@@ -161,9 +161,7 @@ def parse_daily_csv(text: str) -> CsvParseResult:
 
     warnings: list[CsvWarning] = []
     if skipped_columns:
-        warnings.append(
-            CsvWarning(1, f"unknown columns skipped: {', '.join(skipped_columns)}")
-        )
+        warnings.append(CsvWarning(1, f"unknown columns skipped: {', '.join(skipped_columns)}"))
 
     values: dict[tuple[date, str], float] = {}
     duplicate_count = 0
@@ -176,9 +174,7 @@ def parse_daily_csv(text: str) -> CsvParseResult:
             continue
         day = _parse_day(raw_day)
         if day is None:
-            warnings.append(
-                CsvWarning(line_number, f"unparseable date {raw_day!r} — row skipped")
-            )
+            warnings.append(CsvWarning(line_number, f"unparseable date {raw_day!r} — row skipped"))
             continue
         for index, metric in column_metrics.items():
             if index >= len(cells):

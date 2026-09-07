@@ -18,9 +18,7 @@ UTC_TZ = ZoneInfo("UTC")
 BRIEF_TIME = time(7, 0)
 
 
-async def _bind_channel(
-    db: AsyncSession, kind: str = "telegram", target: str = "111"
-) -> None:
+async def _bind_channel(db: AsyncSession, kind: str = "telegram", target: str = "111") -> None:
     user_id = (
         await db.execute(text("SELECT id FROM identity.users ORDER BY created_at LIMIT 1"))
     ).scalar_one()
@@ -67,9 +65,7 @@ async def _outbox(db: AsyncSession) -> list[tuple[str, str, dict[str, Any]]]:
             "ORDER BY o.created_at, o.id"
         )
     )
-    return [
-        (str(r[0]), str(r[1]), cast("dict[str, Any]", r[2])) for r in result.all()
-    ]
+    return [(str(r[0]), str(r[1]), cast("dict[str, Any]", r[2])) for r in result.all()]
 
 
 @requires_db
@@ -233,9 +229,7 @@ async def test_payload_is_valid_json_string(db: AsyncSession) -> None:
         stale_hours=6,
         now=datetime(2026, 8, 21, 7, 0, tzinfo=UTC),
     )
-    raw = (
-        await db.execute(text("SELECT payload::text FROM notifications.outbox"))
-    ).scalar_one()
+    raw = (await db.execute(text("SELECT payload::text FROM notifications.outbox"))).scalar_one()
     parsed = json.loads(str(raw))
     assert parsed["date"] == date(2026, 8, 21).isoformat()
     assert "Good morning" in parsed["text"]

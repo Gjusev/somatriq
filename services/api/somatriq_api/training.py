@@ -183,16 +183,13 @@ def _summary_response(sets: list[TrainingSet]) -> StrengthSummaryResponse:
         hard_sets=summary.hard_sets,
         bodyweight_sets=summary.bodyweight_sets,
         relative_intensity=(
-            None
-            if summary.relative_intensity is None
-            else round(summary.relative_intensity, 4)
+            None if summary.relative_intensity is None else round(summary.relative_intensity, 4)
         ),
         volume_by_group={
             group: round(value, 2) for group, value in summary.volume_by_group.items()
         },
         best_e1rm_by_exercise={
-            exercise: round(value, 2)
-            for exercise, value in summary.best_e1rm_by_exercise.items()
+            exercise: round(value, 2) for exercise, value in summary.best_e1rm_by_exercise.items()
         },
         exercises=summary.exercises,
     )
@@ -202,9 +199,7 @@ async def _session_with_sets(
     session: AsyncSession, session_id: uuid.UUID
 ) -> tuple[TrainingSession, list[TrainingSet]]:
     training_session = (
-        await session.execute(
-            select(TrainingSession).where(TrainingSession.id == session_id)
-        )
+        await session.execute(select(TrainingSession).where(TrainingSession.id == session_id))
     ).scalar_one_or_none()
     if training_session is None:
         raise ApiError(404, ErrorCode.NOT_FOUND, "no such training session")
@@ -365,7 +360,8 @@ async def read_training_response(
     for load_metric in TRAINING_LOAD_METRICS:
         for recovery_metric in RESPONSE_RECOVERY_METRICS:
             xs, ys = join_lagged(
-                load_series[load_metric], recovery_series[recovery_metric],
+                load_series[load_metric],
+                recovery_series[recovery_metric],
                 _RESPONSE_LAG_DAYS,
             )
             result = estimator(xs, ys)

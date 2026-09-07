@@ -96,9 +96,7 @@ async def _ids(db: AsyncSession) -> tuple[uuid.UUID, uuid.UUID]:
     return user_id, device_id
 
 
-async def _seed_sleep(
-    db: AsyncSession, srid: str, start: datetime, end: datetime
-) -> None:
+async def _seed_sleep(db: AsyncSession, srid: str, start: datetime, end: datetime) -> None:
     user_id, device_id = await _ids(db)
     await db.execute(
         text(
@@ -111,9 +109,7 @@ async def _seed_sleep(
     await db.commit()
 
 
-async def _seed_rr(
-    db: AsyncSession, prefix: str, points: Iterable[tuple[datetime, int]]
-) -> None:
+async def _seed_rr(db: AsyncSession, prefix: str, points: Iterable[tuple[datetime, int]]) -> None:
     user_id, device_id = await _ids(db)
     rows = [
         {
@@ -363,9 +359,7 @@ async def test_today_dst_fallback_madrid(
     next_day = datetime(2026, 10, 25, 23, 30, tzinfo=UTC)
     await _seed_sleep(db, "a", in_day, in_day + timedelta(hours=1))
     await _seed_sleep(db, "b", next_day, next_day + timedelta(hours=1))
-    await _seed_rr(
-        db, "rr-a", _rr_pattern(in_day + timedelta(minutes=10), 100)
-    )
+    await _seed_rr(db, "rr-a", _rr_pattern(in_day + timedelta(minutes=10), 100))
     await _seed_hr(
         db,
         (

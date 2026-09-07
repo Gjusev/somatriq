@@ -90,6 +90,4 @@ def parse_experiment_argument(argument: str) -> ParsedExperimentCommand:
     if len(parts) < 2 or parts[1].lower() not in ("yes", "no"):
         return ParsedExperimentCommand("usage", None, None, None)
     note = parts[2].strip() if len(parts) > 2 else ""
-    return ParsedExperimentCommand(
-        "checkin", parts[0], parts[1].lower() == "yes", note or None
-    )
+    return ParsedExperimentCommand("checkin", parts[0], parts[1].lower() == "yes", note or None)

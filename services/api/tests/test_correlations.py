@@ -121,9 +121,7 @@ async def _seed_observations(
     await db.commit()
 
 
-async def _seed_resting_hr(
-    db: AsyncSession, values: Iterable[tuple[date, float]]
-) -> None:
+async def _seed_resting_hr(db: AsyncSession, values: Iterable[tuple[date, float]]) -> None:
     await db.execute(
         text(
             "INSERT INTO derived.daily_features "
@@ -324,9 +322,7 @@ async def test_pair_rejects_bad_method_and_days(
         == 422
     )
     assert (
-        correlations_client.get(
-            "/api/v1/correlations/pair", params={**base, "lag": 99}
-        ).status_code
+        correlations_client.get("/api/v1/correlations/pair", params={**base, "lag": 99}).status_code
         == 422
     )
 
@@ -342,7 +338,9 @@ async def test_matrix_pairs_sorted_with_bonferroni_and_skipped(
     hrv = [(d, 40.0 + i * 0.5) for i, d in enumerate(days)]
     await _seed_observations(db, "avg_hrv", hrv)
     await _seed_observations(
-        db, "recovery", [(d, 100.0 - v) for d, v in hrv]  # perfect negative
+        db,
+        "recovery",
+        [(d, 100.0 - v) for d, v in hrv],  # perfect negative
     )
     await _seed_observations(db, "strain", [(d, 55.0) for d in days])  # constant
     await _seed_observations(db, "skin_temp_dev_c", [(d, 0.1) for d in days[:3]])
@@ -360,9 +358,7 @@ async def test_matrix_pairs_sorted_with_bonferroni_and_skipped(
     magnitudes = [abs(row["r"]) for row in pairs]
     assert magnitudes == sorted(magnitudes, reverse=True)
 
-    hrv_recovery = next(
-        row for row in pairs if row["pair"] == ["avg_hrv", "recovery"]
-    )
+    hrv_recovery = next(row for row in pairs if row["pair"] == ["avg_hrv", "recovery"])
     assert hrv_recovery["r"] == pytest.approx(-1.0, abs=1e-9)
     assert hrv_recovery["band"] == "strong"
     assert hrv_recovery["n"] == 40
@@ -410,11 +406,7 @@ async def test_matrix_days_window_bounds_the_series(
     days = _last_days(30)
     await _seed_observations(db, "avg_hrv", [(d, float(i + 1)) for i, d in enumerate(days)])
     await _seed_observations(db, "recovery", [(d, float(i + 1)) for i, d in enumerate(days)])
-    response = correlations_client.get(
-        "/api/v1/correlations/matrix", params={"days": 20}
-    )
+    response = correlations_client.get("/api/v1/correlations/matrix", params={"days": 20})
     assert response.status_code == 200
-    row = next(
-        r for r in response.json()["pairs"] if r["pair"] == ["avg_hrv", "recovery"]
-    )
+    row = next(r for r in response.json()["pairs"] if r["pair"] == ["avg_hrv", "recovery"])
     assert row["n"] == 20

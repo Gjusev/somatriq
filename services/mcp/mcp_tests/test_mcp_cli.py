@@ -49,8 +49,14 @@ async def test_pat_mint_custom_scopes_and_expiry(
 
     token = await _mint(
         [
-            "pat", "mint", "--name", "scoped",
-            "--scopes", "health.read,other.read", "--expires-days", "30",
+            "pat",
+            "mint",
+            "--name",
+            "scoped",
+            "--scopes",
+            "health.read,other.read",
+            "--expires-days",
+            "30",
         ],
         capsys,
     )

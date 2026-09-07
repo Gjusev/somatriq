@@ -73,9 +73,7 @@ async def _account_status(_: argparse.Namespace) -> int:
 async def _device_token_mint(args: argparse.Namespace) -> int:
     async with get_session_factory()() as session:
         user_id = await accounts.earliest_user_id(session)
-        device, token = await accounts.mint_device_direct(
-            session, user_id, args.name, args.model
-        )
+        device, token = await accounts.mint_device_direct(session, user_id, args.name, args.model)
         _emit(f"device created: device_id={device.id} name={device.name} model={device.model}")
         _emit("device token (shown ONCE — store it in Android keystore-backed storage now):")
         _emit(token)
@@ -92,8 +90,7 @@ async def _pairing_session_create(args: argparse.Namespace) -> int:
             session, user_id, ttl_minutes=args.ttl_minutes
         )
         _emit(
-            f"pairing session: session_id={pairing.id} "
-            f"expires_at={pairing.expires_at.isoformat()}"
+            f"pairing session: session_id={pairing.id} expires_at={pairing.expires_at.isoformat()}"
         )
         _emit("pairing code (shown ONCE — render it as QR/manual entry now):")
         _emit(code)

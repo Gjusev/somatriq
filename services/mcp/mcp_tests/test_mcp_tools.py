@@ -193,9 +193,7 @@ async def test_daily_summary_bounds_validation() -> None:
 # ── get_baselines ────────────────────────────────────────────────────────
 
 
-async def _seed_daily_features(
-    db: AsyncSession, values_by_offset: dict[int, float]
-) -> None:
+async def _seed_daily_features(db: AsyncSession, values_by_offset: dict[int, float]) -> None:
     today = datetime.now(UTC).date()
     db.add_all(
         [

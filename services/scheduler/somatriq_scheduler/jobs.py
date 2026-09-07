@@ -35,8 +35,7 @@ async def enabled_channels(session: AsyncSession) -> list[dict[str, Any]]:
     """All enabled notification channels (single-owner system, any user)."""
     result = await session.execute(
         text(
-            "SELECT id, kind, target FROM notifications.channels "
-            "WHERE enabled ORDER BY created_at"
+            "SELECT id, kind, target FROM notifications.channels WHERE enabled ORDER BY created_at"
         )
     )
     return [{"id": row[0], "kind": row[1], "target": row[2]} for row in result.all()]
@@ -47,9 +46,7 @@ async def ensure_ntfy_channel(session: AsyncSession, topic: str) -> None:
     if not topic.strip():
         return
     user_id = (
-        await session.execute(
-            text("SELECT id FROM identity.users ORDER BY created_at LIMIT 1")
-        )
+        await session.execute(text("SELECT id FROM identity.users ORDER BY created_at LIMIT 1"))
     ).scalar_one_or_none()
     if user_id is None:
         return
@@ -64,9 +61,7 @@ async def ensure_ntfy_channel(session: AsyncSession, topic: str) -> None:
     await session.commit()
 
 
-async def _already_enqueued_today(
-    session: AsyncSession, kind: str, local_day: date
-) -> bool:
+async def _already_enqueued_today(session: AsyncSession, kind: str, local_day: date) -> bool:
     """Any outbox row of this kind for this local day (any status).
 
     Dedup keys on the payload's own ``date`` — the local day the row was

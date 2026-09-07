@@ -5,9 +5,7 @@ from somatriq_replay.decode import WHOOP4_REALTIME_HR_V1, Whoop4RealtimeHrDecode
 from somatriq_replay.journal import Frame
 
 
-def whoop4_realtime_frame(
-    *, ts_seconds: int, subseconds: int, bpm: int, seq: int = 0
-) -> bytes:
+def whoop4_realtime_frame(*, ts_seconds: int, subseconds: int, bpm: int, seq: int = 0) -> bytes:
     frame = bytearray(14)
     frame[0] = 0x01  # SOF (fact: u8@0)
     frame[1:3] = (14 - 6).to_bytes(2, "big")  # length u16 BE @1 (payload length)

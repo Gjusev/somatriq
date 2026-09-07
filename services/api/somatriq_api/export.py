@@ -207,8 +207,10 @@ async def _daily_features(session: AsyncSession, window: _ExportWindow) -> list[
 async def _daily_observations(
     session: AsyncSession, user_id: uuid.UUID, window: _ExportWindow
 ) -> list[DailyObservation]:
-    stmt = select(DailyObservation).where(DailyObservation.user_id == user_id).order_by(
-        DailyObservation.day, DailyObservation.metric, DailyObservation.received_at
+    stmt = (
+        select(DailyObservation)
+        .where(DailyObservation.user_id == user_id)
+        .order_by(DailyObservation.day, DailyObservation.metric, DailyObservation.received_at)
     )
     if window.first_day is not None:
         stmt = stmt.where(DailyObservation.day >= window.first_day)
@@ -374,9 +376,7 @@ async def export_daily_json(
                 created_at=e.created_at,
                 completed_at=e.completed_at,
                 days=[
-                    ExperimentDayOut(
-                        day=d.day, phase=d.phase, complied=d.complied, note=d.note
-                    )
+                    ExperimentDayOut(day=d.day, phase=d.phase, complied=d.complied, note=d.note)
                     for d in experiment_days
                 ],
             )
@@ -467,16 +467,10 @@ async def export_daily_csv(
 
 
 @export_router.get("/raw-batches.json", response_model=RawRegistryResponse)
-async def export_raw_batches(
-    _: AccountJwtDep, session: SessionDep
-) -> RawRegistryResponse:
+async def export_raw_batches(_: AccountJwtDep, session: SessionDep) -> RawRegistryResponse:
     """The raw blob registry (metadata only — see the note in the response)."""
     batches = list(
-        (
-            await session.execute(select(RawBatch).order_by(RawBatch.received_at))
-        )
-        .scalars()
-        .all()
+        (await session.execute(select(RawBatch).order_by(RawBatch.received_at))).scalars().all()
     )
     return RawRegistryResponse(
         generated_at=datetime.now(UTC),

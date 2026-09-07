@@ -104,9 +104,7 @@ async def _seed_training_day(
     db: AsyncSession, day: date, exercise: str, weight: float, reps: int
 ) -> None:
     """One single-set session at local noon of ``day`` (UTC tz in tests)."""
-    user_id = (
-        await db.execute(text("SELECT id FROM identity.users LIMIT 1"))
-    ).scalar_one()
+    user_id = (await db.execute(text("SELECT id FROM identity.users LIMIT 1"))).scalar_one()
     noon = datetime(day.year, day.month, day.day, 12, 0, tzinfo=UTC)
     session_id = await db.execute(
         text(
@@ -147,9 +145,7 @@ async def _seed_resting_hr(db: AsyncSession, values: list[tuple[date, float]]) -
     await db.commit()
 
 
-async def _seed_rmssd_nights(
-    db: AsyncSession, values: list[tuple[date, int]]
-) -> None:
+async def _seed_rmssd_nights(db: AsyncSession, values: list[tuple[date, int]]) -> None:
     """One sleep session per wake-date whose RR window yields exactly
     ``rmssd_ms``: RR [800, 800+d, 800, 800+d] has deltas [d, -d, d] →
     RMSSD = d (all pairs survive the delta-400 filter for d <= 400)."""
@@ -205,16 +201,12 @@ async def _seed_rmssd_nights(
 
 @requires_db
 async def test_create_requires_jwt(training_client: TestClient) -> None:
-    response = training_client.post(
-        f"{TRAINING}/sessions", json={"sets": SPEC_SETS}
-    )
+    response = training_client.post(f"{TRAINING}/sessions", json={"sets": SPEC_SETS})
     assert response.status_code == 401
 
 
 @requires_db
-async def test_create_returns_live_summary(
-    training_client: TestClient, db: AsyncSession
-) -> None:
+async def test_create_returns_live_summary(training_client: TestClient, db: AsyncSession) -> None:
     response = training_client.post(
         f"{TRAINING}/sessions",
         json={"sets": SPEC_SETS, "raw_text": "Chest press 180x8 170x9 160x10"},
@@ -276,9 +268,7 @@ async def test_create_rejects_nonpositive_reps(
 
 
 @requires_db
-async def test_create_rejects_empty_sets(
-    training_client: TestClient, db: AsyncSession
-) -> None:
+async def test_create_rejects_empty_sets(training_client: TestClient, db: AsyncSession) -> None:
     response = training_client.post(
         f"{TRAINING}/sessions", json={"sets": []}, headers=await _auth_headers()
     )
@@ -327,9 +317,7 @@ async def test_list_empty_is_empty(training_client: TestClient) -> None:
 
 
 @requires_db
-async def test_list_days_bounds_the_window(
-    training_client: TestClient, db: AsyncSession
-) -> None:
+async def test_list_days_bounds_the_window(training_client: TestClient, db: AsyncSession) -> None:
     days = _last_days(10)
     await _seed_training_day(db, days[0], "squat", 100.0, 8)  # 10 days ago
     response = training_client.get(

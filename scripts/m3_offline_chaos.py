@@ -49,12 +49,16 @@ BACKOFF_S = 2.0
 
 
 def _load() -> dict[str, Any]:
-    return json.loads(STATE.read_text(encoding="utf-8")) if STATE.exists() else {
-        "watermark_iso": None,  # max ts shipped AND acked
-        "seq": 0,  # record sequence, survives restarts
-        "queue": [],  # [{batch_id, records, raw_b64, sha256, attempts, next_try}]
-        "acked": [],  # full envelopes kept for forensic replay in verify()
-    }
+    return (
+        json.loads(STATE.read_text(encoding="utf-8"))
+        if STATE.exists()
+        else {
+            "watermark_iso": None,  # max ts shipped AND acked
+            "seq": 0,  # record sequence, survives restarts
+            "queue": [],  # [{batch_id, records, raw_b64, sha256, attempts, next_try}]
+            "acked": [],  # full envelopes kept for forensic replay in verify()
+        }
+    )
 
 
 def _save(state: dict[str, Any]) -> None:
@@ -89,11 +93,13 @@ def _mint_batch(state: dict[str, Any], count: int) -> dict[str, Any]:
         n = state["seq"]
         ts = now - timedelta(seconds=state["seq"] * 0)  # distinct ts per record
         ts = ts + timedelta(microseconds=n)  # monotonic uniqueness
-        records.append({
-            "source_record_id": f"m3-{n:07d}",
-            "ts": ts.isoformat(),
-            "bpm": 50 + (n % 40),
-        })
+        records.append(
+            {
+                "source_record_id": f"m3-{n:07d}",
+                "ts": ts.isoformat(),
+                "bpm": 50 + (n % 40),
+            }
+        )
         frame = n.to_bytes(4, "big")
         epoch_ms = int(ts.timestamp() * 1000)
         frames += len(frame).to_bytes(4, "big") + epoch_ms.to_bytes(8, "big") + frame
@@ -120,8 +126,10 @@ def collect(offline_minutes: float = 0.0, minutes: float = 0.0) -> int:
     deadline = time.time() + (offline_minutes + minutes) * 60
     forced_offline = True
     batches, fail_attempts = 0, 0
-    print(f"collecting for {offline_minutes + minutes:.1f} min "
-          f"(first {offline_minutes:.1f} forced offline)")
+    print(
+        f"collecting for {offline_minutes + minutes:.1f} min "
+        f"(first {offline_minutes:.1f} forced offline)"
+    )
     while time.time() < deadline:
         entry = _mint_batch(state, 5)
         batches += 1
@@ -224,8 +232,10 @@ def _owner_login() -> str:
     username = os.environ.get("SQT_OWNER_USER")
     password = os.environ.get("SQT_OWNER_PASS")
     if not username or not password:
-        print("VERIFY FAIL — the read check needs the owner account: set "
-              "SQT_OWNER_USER and SQT_OWNER_PASS (same credentials as `pair`)")
+        print(
+            "VERIFY FAIL — the read check needs the owner account: set "
+            "SQT_OWNER_USER and SQT_OWNER_PASS (same credentials as `pair`)"
+        )
         raise SystemExit(1)
     req = urllib.request.Request(
         BASE + "/api/v1/auth/login",
@@ -259,8 +269,11 @@ def verify() -> int:
         n = len(env["records"])
         total_records += n
         ack = _post(env, device_token)
-        if (not ack.get("accepted") or ack.get("records_inserted", -1) != 0
-                or ack.get("records_duplicate", -1) != n):
+        if (
+            not ack.get("accepted")
+            or ack.get("records_inserted", -1) != 0
+            or ack.get("records_duplicate", -1) != n
+        ):
             print(f"VERIFY FAIL — batch {env['batch_id'][:8]} replay mismatch: {ack}")
             return 1
         if env.get("raw") and not ack.get("raw_ack"):
@@ -290,8 +303,10 @@ def verify() -> int:
         print(f"VERIFY FAIL — metric read empty after {total_records} records: {series}")
         return 1
     print(f"read gate ok: {series['count']} points visible to the owner (401 without JWT)")
-    print(f"M3 VERIFY PASS — {len(state['acked'])} batches / {total_records} records: "
-          "exactly-once through a real outage (no loss, no duplicates)")
+    print(
+        f"M3 VERIFY PASS — {len(state['acked'])} batches / {total_records} records: "
+        "exactly-once through a real outage (no loss, no duplicates)"
+    )
     return 0
 
 
@@ -303,22 +318,30 @@ def reset() -> int:
 
 def pair(username: str, password: str, device_name: str = "m3-chaos-collector") -> int:
     """Pair the simulated collector so it owns a real device token."""
+
     def req(
         method: str, path: str, body: dict[str, Any] | None = None, tok: str | None = None
     ) -> Any:
         headers = {"Content-Type": "application/json"}
         if tok:
             headers["Authorization"] = f"Bearer {tok}"
-        r = urllib.request.Request(BASE + path, data=json.dumps(body).encode() if body else None,
-                                   headers=headers, method=method)
+        r = urllib.request.Request(
+            BASE + path,
+            data=json.dumps(body).encode() if body else None,
+            headers=headers,
+            method=method,
+        )
         with urllib.request.urlopen(r, timeout=15) as res:
             raw = res.read()
             return json.loads(raw) if raw else {}
 
     auth = req("POST", "/api/v1/auth/login", {"username": username, "password": password})
     session = req("POST", "/api/v1/pairing/sessions", tok=auth["access_token"])
-    paired = req("POST", "/api/v1/pairing/confirm",
-                 {"pairing_code": session["pairing_code"], "device_name": device_name})
+    paired = req(
+        "POST",
+        "/api/v1/pairing/confirm",
+        {"pairing_code": session["pairing_code"], "device_name": device_name},
+    )
     Path(__file__).parent.joinpath(".m3_device_token").write_text(paired["token"], encoding="utf-8")
     print(f"paired as {device_name} ({paired['device_id']})")
     return 0
@@ -328,8 +351,10 @@ def main() -> int:
     if CMD == "pair":
         return pair(sys.argv[3], sys.argv[4])
     if CMD == "collect":
-        return collect(offline_minutes=float(sys.argv[3]) if len(sys.argv) > 3 else 0.0,
-                       minutes=float(sys.argv[4]) if len(sys.argv) > 4 else 0.0)
+        return collect(
+            offline_minutes=float(sys.argv[3]) if len(sys.argv) > 3 else 0.0,
+            minutes=float(sys.argv[4]) if len(sys.argv) > 4 else 0.0,
+        )
     if CMD == "drain":
         return drain()
     if CMD == "verify":

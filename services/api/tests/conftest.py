@@ -41,9 +41,7 @@ def migrated_db() -> None:
 
 
 @pytest.fixture(autouse=True)
-def raw_dir_setting(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> Iterator[Path]:
+def raw_dir_setting(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Path]:
     """Per-test SOMATRIQ_RAW_DIR (tmp) + stable SECRET_KEY, fresh settings cache."""
     raw_dir = tmp_path / "raw"
     monkeypatch.setenv("SOMATRIQ_RAW_DIR", str(raw_dir))
@@ -126,9 +124,7 @@ def client(db: AsyncSession) -> Iterator[TestClient]:
 @pytest.fixture()
 async def seeded_user_id(db: AsyncSession) -> uuid.UUID:
     """The seeded single local user — the principal every read serves."""
-    return (
-        await db.execute(select(User.id).order_by(User.created_at).limit(1))
-    ).scalar_one()
+    return (await db.execute(select(User.id).order_by(User.created_at).limit(1))).scalar_one()
 
 
 @pytest.fixture()

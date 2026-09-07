@@ -48,8 +48,7 @@ class CsvConnector(Connector):
 
     async def incremental_sync(self) -> list[DailyObservationItem]:
         raise NotImplementedError(
-            "csv files have no cursor; re-import is idempotent by content hash "
-            "(/api/v1/imports)"
+            "csv files have no cursor; re-import is idempotent by content hash (/api/v1/imports)"
         )
 
     async def normalize(self, raw: object) -> list[DailyObservationItem]:

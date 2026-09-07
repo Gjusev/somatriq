@@ -62,9 +62,7 @@ async def _register_account(api: httpx.AsyncClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
-async def _pair_device(
-    api: httpx.AsyncClient, account_headers: dict[str, str]
-) -> tuple[str, str]:
+async def _pair_device(api: httpx.AsyncClient, account_headers: dict[str, str]) -> tuple[str, str]:
     """Full ADR 0015 dance → (device token, device_id); scopes per contract."""
     session = await api.post("/api/v1/pairing/sessions", headers=account_headers)
     assert session.status_code == 200, session.text

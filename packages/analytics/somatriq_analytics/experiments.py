@@ -44,13 +44,9 @@ ALPHA: Final = FAMILY_ALPHA
 MIN_DAYS_PER_PHASE: Final = 7
 
 # Spec §82 humility: attached verbatim to every evaluation, every surface.
-CAVEAT: Final = (
-    "N-of-1: your data only; replication requires repeating the experiment"
-)
+CAVEAT: Final = "N-of-1: your data only; replication requires repeating the experiment"
 
-P_METHOD_WELCH: Final = (
-    "welch t two-tailed (incomplete beta), df = welch-satterthwaite (floored)"
-)
+P_METHOD_WELCH: Final = "welch t two-tailed (incomplete beta), df = welch-satterthwaite (floored)"
 
 Direction = Literal["increase", "decrease", "any"]
 Verdict = Literal["inconclusive", "consistent with effect", "opposite of hypothesis"]
@@ -94,16 +90,12 @@ def evaluate(
     * "opposite of hypothesis" — p < α against the stated direction.
     """
     if direction not in _DIRECTIONS:
-        raise ValueError(
-            f"direction must be 'increase', 'decrease' or 'any', got {direction!r}"
-        )
+        raise ValueError(f"direction must be 'increase', 'decrease' or 'any', got {direction!r}")
 
     n_baseline = len(baseline_values)
     n_intervention = len(intervention_values)
     mean_baseline = statistics.fmean(baseline_values) if baseline_values else None
-    mean_intervention = (
-        statistics.fmean(intervention_values) if intervention_values else None
-    )
+    mean_intervention = statistics.fmean(intervention_values) if intervention_values else None
     difference = (
         mean_intervention - mean_baseline
         if mean_baseline is not None and mean_intervention is not None
@@ -120,9 +112,9 @@ def evaluate(
         var_b = statistics.variance(baseline_values)
         var_i = statistics.variance(intervention_values)
 
-        pooled = (
-            (n_baseline - 1) * var_b + (n_intervention - 1) * var_i
-        ) / (n_baseline + n_intervention - 2)
+        pooled = ((n_baseline - 1) * var_b + (n_intervention - 1) * var_i) / (
+            n_baseline + n_intervention - 2
+        )
         if pooled > 0.0:
             cohens_d = difference / math.sqrt(pooled)
         elif difference == 0.0:
@@ -133,8 +125,10 @@ def evaluate(
         se_squared = se_b + se_i
         if se_squared > 0.0:
             welch_t = difference / math.sqrt(se_squared)
-            df = se_squared * se_squared / (
-                se_b * se_b / (n_baseline - 1) + se_i * se_i / (n_intervention - 1)
+            df = (
+                se_squared
+                * se_squared
+                / (se_b * se_b / (n_baseline - 1) + se_i * se_i / (n_intervention - 1))
             )
             # Floor to int for the shared incomplete-beta tail: rounding df
             # down can only enlarge p (conservative). Welch df is always
@@ -153,8 +147,10 @@ def evaluate(
     ):
         assert difference is not None  # p only exists when the difference does
         if p_value < ALPHA:
-            if direction == "any" or (direction == "increase" and difference > 0.0) or (
-                direction == "decrease" and difference < 0.0
+            if (
+                direction == "any"
+                or (direction == "increase" and difference > 0.0)
+                or (direction == "decrease" and difference < 0.0)
             ):
                 verdict = VERDICT_CONSISTENT
             else:

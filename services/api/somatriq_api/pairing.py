@@ -58,9 +58,7 @@ async def session_status(
 ) -> PairingStatus:
     """Wizard polling: hint + derived status + the paired device once consumed."""
     pairing = (
-        await session.execute(
-            select(PairingSession).where(PairingSession.id == session_id)
-        )
+        await session.execute(select(PairingSession).where(PairingSession.id == session_id))
     ).scalar_one_or_none()
     if pairing is None or pairing.user_id != user_id:
         raise ApiError(
@@ -93,9 +91,7 @@ async def session_status(
 async def confirm(body: PairingConfirmRequest, session: SessionDep) -> PairingConfirmResponse:
     """Possession of the live code is the proof (no auth header by design)."""
     try:
-        pairing, device, token = await confirm_pairing(
-            session, body.pairing_code, body.device_name
-        )
+        pairing, device, token = await confirm_pairing(session, body.pairing_code, body.device_name)
     except PairingCodeInvalid:
         # Unknown and already-consumed answer identically — no info leak.
         raise ApiError(

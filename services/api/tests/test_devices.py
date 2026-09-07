@@ -134,9 +134,7 @@ async def test_revoke_blocks_ingest_with_device_revoked(
 @requires_db
 async def test_revoke_unknown_device_is_404(api: httpx.AsyncClient) -> None:
     headers = await _account_headers(api)
-    response = await api.post(
-        f"{DEVICES}/{uuid.uuid4()}/revoke", headers=headers
-    )
+    response = await api.post(f"{DEVICES}/{uuid.uuid4()}/revoke", headers=headers)
     assert response.status_code == 404
     assert response.json()["error_code"] == "DEVICE_NOT_FOUND"
 

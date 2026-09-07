@@ -31,9 +31,7 @@ class TelegramError(RuntimeError):
     """Bot API failure — description only; never carries the token or URL."""
 
     def __init__(self, method: str, http_status: int, description: str) -> None:
-        super().__init__(
-            f"telegram {method} failed: HTTP {http_status}: {description[:200]}"
-        )
+        super().__init__(f"telegram {method} failed: HTTP {http_status}: {description[:200]}")
         self.method = method
         self.http_status = http_status
         self.description = description[:200]

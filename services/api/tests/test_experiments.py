@@ -130,9 +130,7 @@ async def _seed_experiment(
     direction: str = "increase",
 ) -> uuid.UUID:
     """Direct insert with a chosen start (the API always starts today)."""
-    user_id = (
-        await db.execute(text("SELECT id FROM identity.users LIMIT 1"))
-    ).scalar_one()
+    user_id = (await db.execute(text("SELECT id FROM identity.users LIMIT 1"))).scalar_one()
     experiment_id = uuid.uuid4()
     await db.execute(
         text(
@@ -149,9 +147,7 @@ async def _seed_experiment(
             "direction": direction,
             "baseline_days": baseline_days,
             "intervention_days": intervention_days,
-            "started_at": datetime(
-                _today().year, _today().month, _today().day, tzinfo=UTC
-            )
+            "started_at": datetime(_today().year, _today().month, _today().day, tzinfo=UTC)
             - timedelta(days=started_days_ago),
         },
     )
@@ -159,14 +155,10 @@ async def _seed_experiment(
     return experiment_id
 
 
-async def _seed_metric(
-    db: AsyncSession, values: Iterable[tuple[date, float]]
-) -> None:
+async def _seed_metric(db: AsyncSession, values: Iterable[tuple[date, float]]) -> None:
     user_id, device_id = (
         await db.execute(
-            text(
-                "SELECT u.id, d.id FROM identity.users u, identity.devices d LIMIT 1"
-            )
+            text("SELECT u.id, d.id FROM identity.users u, identity.devices d LIMIT 1")
         )
     ).one()
     await db.execute(
@@ -175,8 +167,10 @@ async def _seed_metric(
             "(user_id, device_id, day, metric, value) "
             "VALUES (:user_id, :device_id, :day, 'avg_hrv', :value)"
         ),
-        [{"user_id": user_id, "device_id": device_id, "day": day, "value": value}
-         for day, value in values],
+        [
+            {"user_id": user_id, "device_id": device_id, "day": day, "value": value}
+            for day, value in values
+        ],
     )
     await db.commit()
 
@@ -293,9 +287,7 @@ async def test_read_rolls_the_window_forward(
 
 
 @requires_db
-async def test_list_carries_progress(
-    experiments_client: TestClient, db: AsyncSession
-) -> None:
+async def test_list_carries_progress(experiments_client: TestClient, db: AsyncSession) -> None:
     experiment_id = await _seed_experiment(db, started_days_ago=5)
     response = experiments_client.get(EXPERIMENTS, headers=await _auth_headers())
     assert response.status_code == 200, response.text
@@ -326,10 +318,7 @@ async def test_checkin_upserts_today_and_explicit_days(
     assert response.status_code == 200, response.text
     assert response.json()["day"] == today.isoformat()
 
-    rows = {
-        day: (phase, complied)
-        for day, phase, complied in await _day_rows(db, experiment_id)
-    }
+    rows = {day: (phase, complied) for day, phase, complied in await _day_rows(db, experiment_id)}
     assert rows[today] == ("intervention", False)
 
     # Upsert: the same day flips back, and a note rides along.
@@ -339,10 +328,7 @@ async def test_checkin_upserts_today_and_explicit_days(
         headers=await _auth_headers(),
     )
     assert response.status_code == 200
-    rows = {
-        day: (phase, complied)
-        for day, phase, complied in await _day_rows(db, experiment_id)
-    }
+    rows = {day: (phase, complied) for day, phase, complied in await _day_rows(db, experiment_id)}
     assert rows[today] == ("intervention", True)
     assert len(rows) == 12  # upsert, not a second row
 
@@ -460,9 +446,7 @@ async def test_detail_recomputes_the_evaluation_live(
 
     detail = experiments_client.get(f"{EXPERIMENTS}/{experiment_id}")
     assert detail.status_code == 401  # reads need the account JWT (§122)
-    detail = experiments_client.get(
-        f"{EXPERIMENTS}/{experiment_id}", headers=await _auth_headers()
-    )
+    detail = experiments_client.get(f"{EXPERIMENTS}/{experiment_id}", headers=await _auth_headers())
     assert detail.status_code == 200
     evaluation = detail.json()["evaluation"]
     assert evaluation is not None
@@ -489,9 +473,7 @@ async def test_noncomplied_days_are_excluded_and_counted(
         )
         assert response.status_code == 200
 
-    response = experiments_client.post(
-        f"{EXPERIMENTS}/{experiment_id}/complete", headers=headers
-    )
+    response = experiments_client.post(f"{EXPERIMENTS}/{experiment_id}/complete", headers=headers)
     evaluation = response.json()["evaluation"]
     assert evaluation["n_intervention"] == 5
     assert evaluation["n_intervention"] < MIN_DAYS_PER_PHASE
@@ -534,9 +516,7 @@ async def test_checkin_on_completed_experiment_is_422(
 ) -> None:
     experiment_id = await _seed_experiment(db, started_days_ago=20)
     headers = await _auth_headers()
-    completed = experiments_client.post(
-        f"{EXPERIMENTS}/{experiment_id}/complete", headers=headers
-    )
+    completed = experiments_client.post(f"{EXPERIMENTS}/{experiment_id}/complete", headers=headers)
     assert completed.status_code == 200
 
     response = experiments_client.post(

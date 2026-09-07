@@ -197,8 +197,10 @@ def muscle_group_for(exercise: str) -> str:
         if match is None:
             continue
         candidate = (match.start(), key)
-        if best is None or candidate[0] < best[0] or (
-            candidate[0] == best[0] and len(candidate[1]) > len(best[1])
+        if (
+            best is None
+            or candidate[0] < best[0]
+            or (candidate[0] == best[0] and len(candidate[1]) > len(best[1]))
         ):
             best = candidate
     if best is not None:
@@ -295,9 +297,7 @@ def parse_training_line(text: str) -> ParsedTraining | None:
         for kind, value, _, _ in effort:
             for i, current in enumerate(sets):
                 if kind == "rir" and current.rir is None:
-                    sets[i] = ParsedSet(
-                        current.weight_kg, current.reps, int(value), current.rpe
-                    )
+                    sets[i] = ParsedSet(current.weight_kg, current.reps, int(value), current.rpe)
                 elif kind == "rpe" and current.rpe is None:
                     sets[i] = ParsedSet(current.weight_kg, current.reps, current.rir, value)
     else:

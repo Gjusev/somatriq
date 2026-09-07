@@ -31,14 +31,10 @@ PG_ASYNC_URL = "postgresql+asyncpg://somatriq:pw%40word@somatriq_postgres:5432/s
 
 
 def reset_health() -> None:
-    bl.set_health(
-        mode="active", last_backup_at=None, last_status=None, last_error=None
-    )
+    bl.set_health(mode="active", last_backup_at=None, last_status=None, last_error=None)
 
 
-def make_line(
-    n: int, kind: str = "db", status: str = "ok", base: datetime = T0
-) -> bl.ManifestLine:
+def make_line(n: int, kind: str = "db", status: str = "ok", base: datetime = T0) -> bl.ManifestLine:
     stamp = (base + timedelta(hours=n)).strftime("%Y%m%d-%H%M%S")
     ts = (base + timedelta(hours=n)).isoformat()
     name = f"somatriq-{stamp}.dump" if kind == "db" else f"somatriq-raw-{stamp}.tar.gz"
@@ -97,8 +93,12 @@ def test_to_pg_url_rejects_foreign_schemes_and_hostless_dsns() -> None:
 
 def test_manifest_line_roundtrip() -> None:
     line = bl.ManifestLine(
-        ts=T0.isoformat(), kind="db", file="db/somatriq-20260905-030000.dump",
-        bytes=42, sha256="ab" * 32, status="ok",
+        ts=T0.isoformat(),
+        kind="db",
+        file="db/somatriq-20260905-030000.dump",
+        bytes=42,
+        sha256="ab" * 32,
+        status="ok",
     )
     assert bl.parse_manifest_line(line.to_json()) == line
 
@@ -123,14 +123,16 @@ def test_parse_manifest_line_rejects_paths_outside_their_kind_dir() -> None:
     # directory, and never a parent hop — tampered lines are dropped, not
     # acted on.
     line = bl.ManifestLine(
-        ts=T0.isoformat(), kind="db", file="db/somatriq-x.dump", bytes=1,
-        sha256="a", status="ok",
+        ts=T0.isoformat(),
+        kind="db",
+        file="db/somatriq-x.dump",
+        bytes=1,
+        sha256="a",
+        status="ok",
     )
     assert bl.parse_manifest_line(line.to_json().replace("db/somatriq", "raw/somatriq")) is None
     assert (
-        bl.parse_manifest_line(
-            line.to_json().replace("db/somatriq-x.dump", "db/../../etc/passwd")
-        )
+        bl.parse_manifest_line(line.to_json().replace("db/somatriq-x.dump", "db/../../etc/passwd"))
         is None
     )
 
@@ -154,10 +156,14 @@ def test_select_expired_keeps_newest_per_kind() -> None:
     expired_files = {line.file for line in expired}
     # 6 oldest db dumps + 2 oldest raw archives; nothing else.
     assert expired_files == {
-        *(f"db/somatriq-{(T0 + timedelta(hours=n)).strftime('%Y%m%d-%H%M%S')}.dump"
-          for n in range(1, 7)),
-        *(f"raw/somatriq-raw-{(T0 + timedelta(hours=n)).strftime('%Y%m%d-%H%M%S')}.tar.gz"
-          for n in range(1, 3)),
+        *(
+            f"db/somatriq-{(T0 + timedelta(hours=n)).strftime('%Y%m%d-%H%M%S')}.dump"
+            for n in range(1, 7)
+        ),
+        *(
+            f"raw/somatriq-raw-{(T0 + timedelta(hours=n)).strftime('%Y%m%d-%H%M%S')}.tar.gz"
+            for n in range(1, 3)
+        ),
     }
 
 
@@ -206,7 +212,14 @@ def test_apply_retention_never_touches_unaccounted_files(tmp_path: Path) -> None
 
 def test_is_weekly_every_seventh_successful_dump() -> None:
     assert [bl.is_weekly(n) for n in (0, 1, 6, 7, 8, 13, 14, 15)] == [
-        False, False, False, True, False, False, True, False,
+        False,
+        False,
+        False,
+        True,
+        False,
+        False,
+        True,
+        False,
     ]
 
 
@@ -264,9 +277,7 @@ def test_run_backup_once_weekly_raw_archive_on_seventh(
     (config.backup_dir / "db").mkdir(parents=True, exist_ok=True)
     bl.write_manifest(config.backup_dir / "manifest.jsonl", prior)
 
-    monkeypatch.setattr(
-        bl, "run_pg_dump", lambda pg_url, out_file: out_file.write_bytes(b"dump")
-    )
+    monkeypatch.setattr(bl, "run_pg_dump", lambda pg_url, out_file: out_file.write_bytes(b"dump"))
     bl.run_backup_once(config, now=T0)
 
     raw = config.backup_dir / "raw" / "somatriq-raw-20260905-030000.tar.gz"
@@ -279,9 +290,7 @@ def test_run_backup_once_weekly_raw_archive_on_seventh(
     # Not the 7th → no raw archive at all.
     config2 = make_config(tmp_path / "second")
     config2.raw_dir.mkdir(parents=True)
-    monkeypatch.setattr(
-        bl, "run_pg_dump", lambda pg_url, out_file: out_file.write_bytes(b"dump")
-    )
+    monkeypatch.setattr(bl, "run_pg_dump", lambda pg_url, out_file: out_file.write_bytes(b"dump"))
     bl.run_backup_once(config2, now=T0)
     assert not (config2.backup_dir / "raw").exists()
 
@@ -306,9 +315,7 @@ def test_run_backup_once_records_failure_and_raises(
     assert lines[0].sha256 == ""
 
 
-def test_run_backup_once_applies_retention(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_backup_once_applies_retention(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     config = make_config(tmp_path)
     config.raw_dir.mkdir(parents=True)
     # 14 prior dumps ending an hour before this run (so the new one is newest).
@@ -317,9 +324,7 @@ def test_run_backup_once_applies_retention(
         write_artifact(config.backup_dir, line)
     bl.write_manifest(config.backup_dir / "manifest.jsonl", prior)
 
-    monkeypatch.setattr(
-        bl, "run_pg_dump", lambda pg_url, out_file: out_file.write_bytes(b"dump")
-    )
+    monkeypatch.setattr(bl, "run_pg_dump", lambda pg_url, out_file: out_file.write_bytes(b"dump"))
     bl.run_backup_once(config, now=T0)
 
     # 15 ok dumps → the oldest fell out of the 14-day window.

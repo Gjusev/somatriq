@@ -49,9 +49,7 @@ async def _training_rows(db: AsyncSession) -> list[dict[str, Any]]:
 async def _session_count(db: AsyncSession) -> int:
     return cast(
         int,
-        (
-            await db.execute(text("SELECT count(*) FROM health.training_sessions"))
-        ).scalar_one(),
+        (await db.execute(text("SELECT count(*) FROM health.training_sessions"))).scalar_one(),
     )
 
 
@@ -60,9 +58,7 @@ async def _session_count(db: AsyncSession) -> int:
 
 @requires_db
 async def test_log_training_line_stores_session_and_sets(db: AsyncSession) -> None:
-    reply = await handle_command(
-        db, "log", "Chest press 180x8 170x9 160x10", 1, NOW, UTC_TZ
-    )
+    reply = await handle_command(db, "log", "Chest press 180x8 170x9 160x10", 1, NOW, UTC_TZ)
     # Deterministic summary of the parsed session (e1RM 180*(1+8/30)=228).
     assert reply == "Chest press: 3 sets, tonnage 4,570 kg, best e1RM 228"
 
@@ -79,9 +75,7 @@ async def test_log_training_line_stores_session_and_sets(db: AsyncSession) -> No
         (160.0, 10, 2),
     ]
     # A training line is NOT also a journal event.
-    journal = await db.execute(
-        text("SELECT count(*) FROM health.journal_events")
-    )
+    journal = await db.execute(text("SELECT count(*) FROM health.journal_events"))
     assert journal.scalar_one() == 0
 
 
@@ -122,9 +116,7 @@ async def test_log_caffeine_line_still_works(db: AsyncSession) -> None:
     reply = await handle_command(db, "log", "I drank a coffee now", 1, NOW, UTC_TZ)
     assert reply == "Logged: caffeine (quantity not stated — not guessed)"
     assert await _session_count(db) == 0
-    stored = await db.execute(
-        text("SELECT kind, text FROM health.journal_events")
-    )
+    stored = await db.execute(text("SELECT kind, text FROM health.journal_events"))
     rows = stored.all()
     assert len(rows) == 1
     assert rows[0][0] == "caffeine"

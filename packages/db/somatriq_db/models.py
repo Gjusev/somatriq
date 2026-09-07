@@ -97,9 +97,7 @@ class AccountCredential(Base):
     )
     username: Mapped[str] = mapped_column(Text, unique=True)
     password_hash: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -116,9 +114,7 @@ class PairingSession(Base):
     code_hash: Mapped[str] = mapped_column(Text, unique=True)
     code_hint: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, default="pending")  # pending | consumed | expired
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     device_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("identity.devices.id"))
@@ -136,9 +132,7 @@ class DeviceToken(Base):
     device_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity.devices.id"))
     token_hash: Mapped[str] = mapped_column(Text, unique=True)
     scopes: Mapped[list[str]] = mapped_column(ARRAY(Text))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -434,12 +428,8 @@ class PersonalAccessToken(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity.users.id"))
     name: Mapped[str] = mapped_column(Text)
     token_hash: Mapped[str] = mapped_column(Text, unique=True)
-    scopes: Mapped[list[str]] = mapped_column(
-        ARRAY(Text), server_default="ARRAY['health.read']"
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="ARRAY['health.read']")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -469,14 +459,10 @@ class JournalEvent(Base):
     kind: Mapped[str] = mapped_column(
         Text
     )  # journal | caffeine | training | experiment_checkin | note
-    ts: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     text: Mapped[str | None] = mapped_column(Text)
     structured: Mapped[dict[str, object] | None] = mapped_column(JSONB)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # ── notifications: channels + outbox (M7, spec §105) ──────────────────────
@@ -502,9 +488,7 @@ class NotificationChannel(Base):
     kind: Mapped[str] = mapped_column(Text)  # telegram | ntfy
     target: Mapped[str] = mapped_column(Text)  # chat id / topic
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class NotificationOutbox(Base):
@@ -526,9 +510,7 @@ class NotificationOutbox(Base):
     status: Mapped[str] = mapped_column(Text, default="pending")
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -563,12 +545,8 @@ class Experiment(Base):
     baseline_days: Mapped[int] = mapped_column(Integer, default=14)
     intervention_days: Mapped[int] = mapped_column(Integer, default=14)
     status: Mapped[str] = mapped_column(Text, default="running")  # running|completed|abandoned
-    started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -586,9 +564,7 @@ class ExperimentDay(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid, primary_key=True, server_default=func.gen_random_uuid()
     )
-    experiment_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("research.experiments.id")
-    )
+    experiment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("research.experiments.id"))
     day: Mapped[date] = mapped_column(Date)
     phase: Mapped[str] = mapped_column(Text)  # baseline | intervention
     complied: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -613,14 +589,10 @@ class TrainingSession(Base):
         Uuid, primary_key=True, server_default=func.gen_random_uuid()
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity.users.id"))
-    ts: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     source: Mapped[str] = mapped_column(Text, default="telegram")  # telegram|web|api
     raw_text: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class TrainingSet(Base):
@@ -643,9 +615,7 @@ class TrainingSet(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid, primary_key=True, server_default=func.gen_random_uuid()
     )
-    session_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("health.training_sessions.id")
-    )
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("health.training_sessions.id"))
     exercise: Mapped[str] = mapped_column(Text)
     muscle_group: Mapped[str] = mapped_column(Text)
     weight_kg: Mapped[float | None] = mapped_column(Float)
@@ -653,6 +623,4 @@ class TrainingSet(Base):
     rir: Mapped[int | None] = mapped_column(Integer)
     rpe: Mapped[float | None] = mapped_column(Float)
     set_index: Mapped[int] = mapped_column(Integer)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

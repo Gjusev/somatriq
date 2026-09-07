@@ -32,8 +32,10 @@ class RawBatchInfo:
 
 async def list_batches(session: AsyncSession, limit: int = 100) -> list[RawBatchInfo]:
     rows = (
-        await session.execute(select(RawBatch).order_by(RawBatch.received_at).limit(limit))
-    ).scalars().all()
+        (await session.execute(select(RawBatch).order_by(RawBatch.received_at).limit(limit)))
+        .scalars()
+        .all()
+    )
     return [
         RawBatchInfo(
             batch_id=r.batch_id,

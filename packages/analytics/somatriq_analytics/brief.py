@@ -46,9 +46,7 @@ def _hrv_lines(data: TodayData) -> list[str]:
     if data.hrv is None or data.hrv.rmssd_ms is None:
         return ["no data yet"]
     lines = [f"{data.hrv.rmssd_ms:g} ms"]
-    hrv_input = next(
-        (c for c in data.recovery.contributions if c.input == "hrv"), None
-    )
+    hrv_input = next((c for c in data.recovery.contributions if c.input == "hrv"), None)
     if hrv_input is None or hrv_input.baseline_median is None:
         return lines + ["baseline still building"]
     median = hrv_input.baseline_median

@@ -40,9 +40,7 @@ class Settings:
 def _privacy_level(raw: str | None) -> PrivacyLevel:
     level = (raw or DEFAULT_PRIVACY_LEVEL).strip().lower()
     if level not in PRIVACY_LEVELS:
-        msg = (
-            f"AI_PRIVACY_LEVEL must be one of {sorted(PRIVACY_LEVELS)}; got {raw!r} (ADR 0009)"
-        )
+        msg = f"AI_PRIVACY_LEVEL must be one of {sorted(PRIVACY_LEVELS)}; got {raw!r} (ADR 0009)"
         raise RuntimeError(msg)
     return level  # type: ignore[return-value]  # validated against PRIVACY_LEVELS above
 

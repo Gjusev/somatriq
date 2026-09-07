@@ -121,9 +121,7 @@ async def _seed_experiment(
     intervention_days: int = 7,
     name: str = "Caffeine cutoff",
 ) -> uuid.UUID:
-    user_id = (
-        await db.execute(text("SELECT id FROM identity.users LIMIT 1"))
-    ).scalar_one()
+    user_id = (await db.execute(text("SELECT id FROM identity.users LIMIT 1"))).scalar_one()
     experiment_id = uuid.uuid4()
     await db.execute(
         text(
@@ -139,9 +137,7 @@ async def _seed_experiment(
             "name": name,
             "baseline_days": baseline_days,
             "intervention_days": intervention_days,
-            "started_at": datetime(
-                started.year, started.month, started.day, tzinfo=UTC
-            ),
+            "started_at": datetime(started.year, started.month, started.day, tzinfo=UTC),
         },
     )
     await db.commit()
@@ -163,9 +159,7 @@ async def test_experiment_list_shows_phase_progress_and_today(
     default is complied=true (silence counts as kept — a check-in is how
     you say no), so a freshly materialized today reads "complied"."""
     await handle_command(db, "start", "", OWNER_CHAT, NOW, UTC_TZ)
-    experiment_id = await _seed_experiment(
-        db, started=NOW.date() - timedelta(days=5)
-    )
+    experiment_id = await _seed_experiment(db, started=NOW.date() - timedelta(days=5))
 
     reply = await handle_command(db, "experiment", "", OWNER_CHAT, NOW, UTC_TZ)
 
@@ -179,9 +173,7 @@ async def test_experiment_list_shows_phase_progress_and_today(
 # ── check-in ──────────────────────────────────────────────────────────────
 
 
-async def _today_row(
-    db: AsyncSession, experiment_id: uuid.UUID
-) -> tuple[str, bool, str | None]:
+async def _today_row(db: AsyncSession, experiment_id: uuid.UUID) -> tuple[str, bool, str | None]:
     result = await db.execute(
         text(
             "SELECT phase, complied, note FROM research.experiment_days "
@@ -196,9 +188,7 @@ async def _today_row(
 @requires_db
 async def test_experiment_checkin_yes_no_note(db: AsyncSession) -> None:
     await handle_command(db, "start", "", OWNER_CHAT, NOW, UTC_TZ)
-    experiment_id = await _seed_experiment(
-        db, started=NOW.date() - timedelta(days=5)
-    )
+    experiment_id = await _seed_experiment(db, started=NOW.date() - timedelta(days=5))
     handle = experiment_handle(experiment_id)
 
     reply = await handle_command(
@@ -225,12 +215,8 @@ async def test_experiment_checkin_unknown_handle_lists_candidates(
     db: AsyncSession,
 ) -> None:
     await handle_command(db, "start", "", OWNER_CHAT, NOW, UTC_TZ)
-    experiment_id = await _seed_experiment(
-        db, started=NOW.date() - timedelta(days=5)
-    )
-    reply = await handle_command(
-        db, "experiment", "deadbeef yes", OWNER_CHAT, NOW, UTC_TZ
-    )
+    experiment_id = await _seed_experiment(db, started=NOW.date() - timedelta(days=5))
+    reply = await handle_command(db, "experiment", "deadbeef yes", OWNER_CHAT, NOW, UTC_TZ)
     assert reply.startswith("No running experiment matches that id")
     assert experiment_handle(experiment_id) in reply  # candidates for retyping
 
@@ -242,18 +228,14 @@ async def test_experiment_checkin_outside_window_is_refused(
     """Started 20 days ago (7/7): the window closed 13 days ago — nothing
     to check in, and no row is written."""
     await handle_command(db, "start", "", OWNER_CHAT, NOW, UTC_TZ)
-    experiment_id = await _seed_experiment(
-        db, started=NOW.date() - timedelta(days=20)
-    )
+    experiment_id = await _seed_experiment(db, started=NOW.date() - timedelta(days=20))
     handle = experiment_handle(experiment_id)
 
     listed = await handle_command(db, "experiment", "", OWNER_CHAT, NOW, UTC_TZ)
     assert "intervention day 7/7" in listed  # window fully materialized
     reply = await handle_command(db, "experiment", f"{handle} yes", OWNER_CHAT, NOW, UTC_TZ)
     assert "outside the experiment window" in reply
-    rows = await db.execute(
-        text("SELECT count(*) FROM research.experiment_days")
-    )
+    rows = await db.execute(text("SELECT count(*) FROM research.experiment_days"))
     assert rows.scalar_one() == 14  # the list materialized the window; checkin added 0
 
 

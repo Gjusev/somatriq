@@ -74,9 +74,7 @@ async def list_devices(user_id: AccountJwtDep, session: SessionDep) -> list[Devi
 
 
 @router.post("/{device_id}/revoke", status_code=status.HTTP_204_NO_CONTENT)
-async def revoke_device(
-    device_id: UUID, user_id: AccountJwtDep, session: SessionDep
-) -> Response:
+async def revoke_device(device_id: UUID, user_id: AccountJwtDep, session: SessionDep) -> Response:
     """Revoke ALL active tokens of the device (§124 audit event)."""
     device = (
         await session.execute(

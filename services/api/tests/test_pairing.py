@@ -163,9 +163,7 @@ async def test_reused_code_is_404_like_unknown(
     reuse = await api.post(
         CONFIRM, json={"pairing_code": session_body["pairing_code"], "device_name": "pixel-9b"}
     )
-    wrong = await api.post(
-        CONFIRM, json={"pairing_code": "WWWWWWWW", "device_name": "pixel-9c"}
-    )
+    wrong = await api.post(CONFIRM, json={"pairing_code": "WWWWWWWW", "device_name": "pixel-9c"})
     assert reuse.status_code == 404
     assert reuse.json()["error_code"] == "PAIRING_CODE_INVALID"
     assert wrong.status_code == 404

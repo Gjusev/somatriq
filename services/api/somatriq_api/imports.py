@@ -170,8 +170,7 @@ def verify_preview_token(token: str, content_sha: str) -> None:
             status_code=422,
             code=ErrorCode.VALIDATION,
             message=(
-                "preview token does not match this content — "
-                "preview again and commit the same file"
+                "preview token does not match this content — preview again and commit the same file"
             ),
         )
     if datetime.fromtimestamp(exp, tz=UTC) <= datetime.now(UTC):
@@ -217,10 +216,7 @@ async def _import_device_id(session: AsyncSession, user_id: uuid.UUID) -> uuid.U
     decoder_version column distinguishes the import path)."""
     device_id = (
         await session.execute(
-            select(Device.id)
-            .where(Device.user_id == user_id)
-            .order_by(Device.active_from)
-            .limit(1)
+            select(Device.id).where(Device.user_id == user_id).order_by(Device.active_from).limit(1)
         )
     ).scalar_one_or_none()
     if device_id is None:
@@ -275,9 +271,7 @@ async def preview_import(
         decoder_version=DECODER_VERSION,
         date_range=None
         if preview.date_range is None
-        else ImportDateRange(
-            first_day=preview.date_range[0], last_day=preview.date_range[1]
-        ),
+        else ImportDateRange(first_day=preview.date_range[0], last_day=preview.date_range[1]),
         metrics=[ImportMetricCount(metric=m, count=c) for m, c in preview.metrics],
         record_count=preview.record_count,
         duplicates=ImportDuplicatesOut(
@@ -285,8 +279,7 @@ async def preview_import(
             already_present=preview.duplicates.already_present,
         ),
         validation_warnings=[
-            ImportWarningOut(line=w.line, reason=w.reason)
-            for w in preview.validation_warnings
+            ImportWarningOut(line=w.line, reason=w.reason) for w in preview.validation_warnings
         ],
         validation_warning_count=preview.validation_warning_count,
         skipped_columns=preview.skipped_columns,

@@ -85,9 +85,7 @@ class PairingSessionResponse(BaseModel):
     @field_validator("pairing_code")
     @classmethod
     def _code_shape(cls, value: str) -> str:
-        if len(value) != PAIRING_CODE_LENGTH or any(
-            c not in PAIRING_CODE_ALPHABET for c in value
-        ):
+        if len(value) != PAIRING_CODE_LENGTH or any(c not in PAIRING_CODE_ALPHABET for c in value):
             msg = f"pairing_code must be {PAIRING_CODE_LENGTH} chars from the unambiguous alphabet"
             raise ValueError(msg)
         return value

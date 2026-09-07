@@ -70,9 +70,7 @@ class Whoop4RealtimeHrDecoder:
             return None
         if payload[WHOOP4_PACKET_TYPE_OFFSET] != WHOOP4_REALTIME_TYPE:
             return None  # not a realtime packet — a future decoder's business
-        ts_seconds = int.from_bytes(
-            payload[WHOOP4_TS_OFFSET : WHOOP4_TS_OFFSET + 4], "little"
-        )
+        ts_seconds = int.from_bytes(payload[WHOOP4_TS_OFFSET : WHOOP4_TS_OFFSET + 4], "little")
         subseconds = int.from_bytes(
             payload[WHOOP4_SUBSEC_OFFSET : WHOOP4_SUBSEC_OFFSET + 2], "little"
         )
@@ -80,6 +78,4 @@ class Whoop4RealtimeHrDecoder:
         ts = datetime.fromtimestamp(ts_seconds, tz=UTC) + timedelta(
             microseconds=subseconds * 1_000_000 // SUBSECOND_DENOMINATOR
         )
-        return DecodedObservation(
-            ts=ts, bpm=bpm, source_frame_epoch_ms=frame.epoch_ms
-        )
+        return DecodedObservation(ts=ts, bpm=bpm, source_frame_epoch_ms=frame.epoch_ms)

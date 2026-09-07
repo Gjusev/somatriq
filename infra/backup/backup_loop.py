@@ -434,9 +434,7 @@ def backup_loop(
         started = now()
         try:
             run_backup_once(config, now=started)
-            set_health(
-                last_backup_at=started.isoformat(), last_status="ok", last_error=None
-            )
+            set_health(last_backup_at=started.isoformat(), last_status="ok", last_error=None)
             log.info("backup run completed")
         except Exception as exc:  # noqa: BLE001 — a failed night must never kill the loop
             set_health(last_status="error", last_error=str(exc))

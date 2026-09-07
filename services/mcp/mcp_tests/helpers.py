@@ -66,13 +66,18 @@ async def call_tool(
     application: Starlette = create_app()
     async with application.router.lifespan_context(application):
         transport = httpx2.ASGITransport(app=application)
-        async with httpx2.AsyncClient(
-            transport=transport,
-            base_url="http://testserver",
-            headers={"Authorization": f"Bearer {token}"},
-        ) as http, streamable_http_client(
-            "http://testserver/mcp", http_client=http
-        ) as (read_stream, write_stream), ClientSession(read_stream, write_stream) as session:
+        async with (
+            httpx2.AsyncClient(
+                transport=transport,
+                base_url="http://testserver",
+                headers={"Authorization": f"Bearer {token}"},
+            ) as http,
+            streamable_http_client("http://testserver/mcp", http_client=http) as (
+                read_stream,
+                write_stream,
+            ),
+            ClientSession(read_stream, write_stream) as session,
+        ):
             await session.initialize()
             result = await session.call_tool(name, arguments or {})
             first = result.content[0]

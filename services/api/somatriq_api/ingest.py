@@ -133,9 +133,7 @@ async def submit_batch(
         # the transaction then fails, an orphan blob file may remain —
         # acceptable, because a replay of the same batch atomically
         # overwrites the same deterministic path.
-        blob_path = str(
-            store.write(user_id, device_id, request.batch_id, raw_bytes, received_at)
-        )
+        blob_path = str(store.write(user_id, device_id, request.batch_id, raw_bytes, received_at))
 
     raw_frame_count = request.raw.frame_count if request.raw is not None else 0
     raw_bytes_stored = len(raw_bytes) if raw_bytes is not None else 0

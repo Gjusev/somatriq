@@ -96,9 +96,7 @@ def test_below_min_overlap_returns_none() -> None:
     assert pearson(xs, xs) is None
     assert spearman(xs, xs) is None
     assert MIN_OVERLAP_DAYS == 14
-    assert INSUFFICIENT_OVERLAP_REASON == (
-        "insufficient overlap — need at least 14 shared days"
-    )
+    assert INSUFFICIENT_OVERLAP_REASON == ("insufficient overlap — need at least 14 shared days")
 
 
 def test_at_min_overlap_returns_result() -> None:

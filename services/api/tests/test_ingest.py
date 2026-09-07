@@ -292,9 +292,7 @@ async def test_v2_raw_ack_blob_and_registry_row(
 @requires_db
 async def test_v2_sha_mismatch_is_422(api: httpx.AsyncClient) -> None:
     """payload_sha256 must equal sha256 of the decoded bytes — 422 otherwise."""
-    body = _v2_payload(
-        str(uuid.uuid4()), [_record(1, 58.0)], raw=_raw_payload(sha="0" * 64)
-    )
+    body = _v2_payload(str(uuid.uuid4()), [_record(1, 58.0)], raw=_raw_payload(sha="0" * 64))
     response = await api.post(INGEST_PATH, json=body)
     assert response.status_code == 422
     assert response.json()["error_code"] == "VALIDATION"

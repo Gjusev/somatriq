@@ -223,9 +223,7 @@ async def test_engine_deterministic_answer_with_seeded_data(
     await _seed_full_day(db)
     engine = CoachEngine(DeterministicProvider(), privacy_level="local")
 
-    result = await engine.answer(
-        "How is my recovery today?", user_id, db, now=FROZEN_NOW
-    )
+    result = await engine.answer("How is my recovery today?", user_id, db, now=FROZEN_NOW)
 
     assert result.provider == "deterministic"
     assert result.privacy_level == "local"
@@ -278,9 +276,7 @@ async def test_engine_clamps_level_to_provider_ceiling(
     provider = RecordingProvider()  # external-style ceiling: aggregates
     engine = CoachEngine(provider, privacy_level="detailed")
 
-    result = await engine.answer(
-        "How is my recovery today?", user_id, db, now=FROZEN_NOW
-    )
+    result = await engine.answer("How is my recovery today?", user_id, db, now=FROZEN_NOW)
 
     assert result.privacy_level == "aggregates"
     assert any("clamped" in caveat for caveat in result.caveats)

@@ -146,10 +146,14 @@ async def test_verify_and_replay_whoop_batch(
     assert body["inserted"] == 3
 
     rows = (
-        await db.execute(
-            select(ReplayedObservation).where(ReplayedObservation.raw_batch_id == batch_id)
+        (
+            await db.execute(
+                select(ReplayedObservation).where(ReplayedObservation.raw_batch_id == batch_id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert sorted(int(r.bpm) for r in rows) == [58, 61, 64]
     assert all(r.decoder_version == "whoop4-realtime-hr/v1" for r in rows)
 

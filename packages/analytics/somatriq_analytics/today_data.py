@@ -309,9 +309,7 @@ async def _today_resting_hr(
         },
     )
     rows = result.all()
-    bucket_medians: list[float] = (
-        list(cast("list[float]", rows[0][1])) if rows else []
-    )
+    bucket_medians: list[float] = list(cast("list[float]", rows[0][1])) if rows else []
     summary = summarize_day(
         date=day,
         timezone=tz.key,
@@ -320,9 +318,7 @@ async def _today_resting_hr(
         hr_mean=cast("float | None", rows[0][3]) if rows else None,
         hr_max=cast("float | None", rows[0][4]) if rows else None,
         sample_count=cast(int, rows[0][5]) if rows else 0,
-        coverage_ratio=_coverage_ratio(
-            cast(int, rows[0][5]) if rows else 0, expected_per_day
-        ),
+        coverage_ratio=_coverage_ratio(cast(int, rows[0][5]) if rows else 0, expected_per_day),
     )
     await session.execute(
         text(_DAILY_UPSERT_SQL),
@@ -344,9 +340,7 @@ async def _today_resting_hr(
     return summary.resting_hr, summary.data_quality, summary.coverage_ratio
 
 
-async def _baseline_resting_hr(
-    session: AsyncSession, first: date, last: date
-) -> list[float]:
+async def _baseline_resting_hr(session: AsyncSession, first: date, last: date) -> list[float]:
     """resting_hr values from daily_features over [first, last] (read-only)."""
     result = await session.execute(
         text(
@@ -359,13 +353,9 @@ async def _baseline_resting_hr(
     return [cast(float, row[0]) for row in result.all()]
 
 
-async def _journal_today(
-    session: AsyncSession, day_start: datetime, now: datetime
-) -> JournalToday:
+async def _journal_today(session: AsyncSession, day_start: datetime, now: datetime) -> JournalToday:
     """The local day's caffeine events and journal notes (spec §103)."""
-    result = await session.execute(
-        text(_JOURNAL_SQL), {"day_start": day_start, "now": now}
-    )
+    result = await session.execute(text(_JOURNAL_SQL), {"day_start": day_start, "now": now})
     journal = JournalToday()
     for kind, count, last_ts in result.all():
         if kind == "caffeine":
@@ -383,9 +373,7 @@ async def _journal_today(
     return journal
 
 
-async def assemble_today(
-    session: AsyncSession, *, tz: ZoneInfo, now: datetime
-) -> TodayData:
+async def assemble_today(session: AsyncSession, *, tz: ZoneInfo, now: datetime) -> TodayData:
     """Assemble TODAY in the effective timezone — the single shared reading.
 
     Identical semantics to the M6 GET /metrics/today assembly this was
@@ -453,9 +441,7 @@ async def assemble_today(
             source_record_ids=sorted(w.source_record_id for w in today_sessions),
         )
 
-    resting_hr, resting_hr_quality, coverage_ratio = await _today_resting_hr(
-        session, tz, today
-    )
+    resting_hr, resting_hr_quality, coverage_ratio = await _today_resting_hr(session, tz, today)
 
     baseline_last = today - timedelta(days=1)
     hrv_baseline = baseline(hrv_baseline_values)
@@ -486,9 +472,7 @@ async def assemble_today(
             await session.execute(text("SELECT max(ts) FROM timeseries.heart_rate"))
         ).scalar_one_or_none(),
     )
-    freshness = (
-        round((now - newest_hr).total_seconds() / 60, 2) if newest_hr is not None else None
-    )
+    freshness = round((now - newest_hr).total_seconds() / 60, 2) if newest_hr is not None else None
 
     caveats: list[str] = []
     day_hours = (next_day_start - day_start).total_seconds() / 3600

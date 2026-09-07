@@ -137,9 +137,7 @@ async def _touch_device_token(session: AsyncSession, token_row: DeviceToken) -> 
     await session.commit()
 
 
-async def _authenticate_device_token(
-    request: Request, session: AsyncSession, token: str
-) -> None:
+async def _authenticate_device_token(request: Request, session: AsyncSession, token: str) -> None:
     token_row = await _verified_device_token(session, token, INGEST_WRITE_SCOPE)
 
     device = (
@@ -177,9 +175,7 @@ ReadUserDep = Annotated[UUID, Depends(require_read_principal)]
 
 async def _apply_single_user_context(request: Request, session: AsyncSession) -> None:
     user_id, device_id = await resolve_single_user_target(session)
-    device = (
-        await session.execute(select(Device).where(Device.id == device_id))
-    ).scalar_one()
+    device = (await session.execute(select(Device).where(Device.id == device_id))).scalar_one()
     request.state.user_id = user_id
     request.state.device_id = device_id
     request.state.device_name = device.name

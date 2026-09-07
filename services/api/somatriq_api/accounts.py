@@ -102,9 +102,7 @@ def create_access_token(user_id: uuid.UUID) -> tuple[str, datetime]:
 
 def decode_access_token(token: str) -> uuid.UUID:
     """Verify signature + audience + expiry; raises jwt.PyJWTError otherwise."""
-    payload = jwt.decode(
-        token, jwt_secret(), algorithms=[JWT_ALGORITHM], audience=JWT_AUDIENCE
-    )
+    payload = jwt.decode(token, jwt_secret(), algorithms=[JWT_ALGORITHM], audience=JWT_AUDIENCE)
     return uuid.UUID(str(payload["sub"]))
 
 
@@ -131,9 +129,7 @@ AccountJwtDep = Annotated[uuid.UUID, Depends(require_account_jwt)]
 
 
 async def account_exists(session: AsyncSession) -> bool:
-    found = (
-        await session.execute(select(AccountCredential.user_id).limit(1))
-    ).scalar_one_or_none()
+    found = (await session.execute(select(AccountCredential.user_id).limit(1))).scalar_one_or_none()
     return found is not None
 
 
@@ -193,9 +189,7 @@ async def change_password(
     silently disconnects collectors mid-stream.
     """
     credential = (
-        await session.execute(
-            select(AccountCredential).where(AccountCredential.user_id == user_id)
-        )
+        await session.execute(select(AccountCredential).where(AccountCredential.user_id == user_id))
     ).scalar_one_or_none()
     if credential is None or not verify_password(credential.password_hash, current_password):
         return False
@@ -217,9 +211,7 @@ class PairingCodeExpired(Exception):
 
 
 def generate_pairing_code() -> str:
-    return "".join(
-        _pairing_rng.choice(PAIRING_CODE_ALPHABET) for _ in range(PAIRING_CODE_LENGTH)
-    )
+    return "".join(_pairing_rng.choice(PAIRING_CODE_ALPHABET) for _ in range(PAIRING_CODE_LENGTH))
 
 
 def hash_pairing_code(code: str) -> str:
@@ -269,9 +261,7 @@ async def confirm_pairing(
     """Exchange a live code for a device + token; the token is returned ONCE."""
     code_hash = hash_pairing_code(raw_code)
     pairing = (
-        await session.execute(
-            select(PairingSession).where(PairingSession.code_hash == code_hash)
-        )
+        await session.execute(select(PairingSession).where(PairingSession.code_hash == code_hash))
     ).scalar_one_or_none()
     if pairing is None or pairing.status == "consumed":
         raise PairingCodeInvalid
@@ -283,9 +273,7 @@ async def confirm_pairing(
     session.add(device)
     await session.flush()  # device.id for the source + token rows below
     session.add(
-        DataSource(
-            device_id=device.id, provider=BOOTSTRAP_PROVIDER, collector=BOOTSTRAP_COLLECTOR
-        )
+        DataSource(device_id=device.id, provider=BOOTSTRAP_PROVIDER, collector=BOOTSTRAP_COLLECTOR)
     )
     token = mint_device_token_value()
     session.add(
@@ -326,9 +314,7 @@ async def mint_device_direct(
     session.add(device)
     await session.flush()
     session.add(
-        DataSource(
-            device_id=device.id, provider=BOOTSTRAP_PROVIDER, collector=BOOTSTRAP_COLLECTOR
-        )
+        DataSource(device_id=device.id, provider=BOOTSTRAP_PROVIDER, collector=BOOTSTRAP_COLLECTOR)
     )
     token = mint_device_token_value()
     session.add(
@@ -337,9 +323,7 @@ async def mint_device_direct(
         )
     )
     await session.commit()
-    logger.info(
-        "device token issued via bootstrap: device_id=%s user_id=%s", device.id, user_id
-    )
+    logger.info("device token issued via bootstrap: device_id=%s user_id=%s", device.id, user_id)
     return device, token
 
 

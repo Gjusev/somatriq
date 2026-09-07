@@ -80,9 +80,7 @@ async def get_raw_batches(session: SessionDep, _: AccountJwtDep) -> list[RawBatc
 
 
 @router.get("/raw-batches/{batch_id}/verify", response_model=VerifyView)
-async def verify_raw_batch(
-    batch_id: UUID, session: SessionDep, _: AccountJwtDep
-) -> VerifyView:
+async def verify_raw_batch(batch_id: UUID, session: SessionDep, _: AccountJwtDep) -> VerifyView:
     settings = get_settings()
     try:
         report = await verify_batch(session, batch_id, settings.raw_dir)

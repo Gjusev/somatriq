@@ -178,9 +178,7 @@ def test_flat_different_phases_refuse_a_verdict() -> None:
 
 
 def test_caveat_is_verbatim_and_always_attached() -> None:
-    assert CAVEAT == (
-        "N-of-1: your data only; replication requires repeating the experiment"
-    )
+    assert CAVEAT == ("N-of-1: your data only; replication requires repeating the experiment")
     assert evaluate(RAMP, SHIFTED, "increase").caveat == CAVEAT
     assert evaluate([], [], "any").caveat == CAVEAT
 

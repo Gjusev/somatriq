@@ -151,9 +151,7 @@ async def bind_chat(session: AsyncSession, chat_id: int | str) -> BindingDecisio
     """Apply the /start binding decision for the seeded (owner) user."""
     user_id = await _owner_user_id(session)
     if user_id is None:
-        return BindingDecision(
-            "rejected", "No user account found. Initialize the server first."
-        )
+        return BindingDecision("rejected", "No user account found. Initialize the server first.")
     targets = await _telegram_targets(session, user_id)
     decision = decide_binding(targets, str(chat_id))
     if decision.action == "bind":
@@ -187,9 +185,7 @@ async def record_journal_event(
             "kind": parsed.kind,
             "ts": ts,
             "text": event_text,
-            "structured": (
-                None if parsed.structured is None else json.dumps(parsed.structured)
-            ),
+            "structured": (None if parsed.structured is None else json.dumps(parsed.structured)),
         },
     )
     await session.commit()
@@ -276,17 +272,11 @@ def match_experiment_handle(
     token = id_token.replace("-", "").lower()
     if len(token) < _MIN_HANDLE_CHARS:
         return None
-    matches = [
-        experiment
-        for experiment in experiments
-        if experiment.id.hex.startswith(token)
-    ]
+    matches = [experiment for experiment in experiments if experiment.id.hex.startswith(token)]
     return matches[0] if len(matches) == 1 else None
 
 
-def experiment_window(
-    experiment: RunningExperiment, tz: ZoneInfo
-) -> tuple[date, date, date]:
+def experiment_window(experiment: RunningExperiment, tz: ZoneInfo) -> tuple[date, date, date]:
     """(first_day, start_day, last_day) — same math as the API window."""
     start_day = experiment.started_at.astimezone(tz).date()
     first = start_day - timedelta(days=experiment.baseline_days - 1)
@@ -409,17 +399,12 @@ async def _experiment_checkin(
     experiment = match_experiment_handle(parsed.id_token, experiments)
     if experiment is None:
         lines = ["No running experiment matches that id (or it is ambiguous)."]
-        lines.extend(
-            f"{e.name} [{experiment_handle(e.id)}]" for e in experiments
-        )
+        lines.extend(f"{e.name} [{experiment_handle(e.id)}]" for e in experiments)
         return "\n".join(lines)
     today = now.astimezone(tz).date()
     first, start_day, last = experiment_window(experiment, tz)
     if today < first or today > last:
-        return (
-            f"{experiment.name}: today is outside the experiment window — "
-            "nothing to check in."
-        )
+        return f"{experiment.name}: today is outside the experiment window — nothing to check in."
     phase = "baseline" if today <= start_day else "intervention"
     await session.execute(
         text(
@@ -573,9 +558,7 @@ async def run_bot(
     log.info("bot polling started")
     while stop is None or not stop.is_set():
         try:
-            updates = await asyncio.to_thread(
-                client.get_updates, offset, timeout=poll_timeout
-            )
+            updates = await asyncio.to_thread(client.get_updates, offset, timeout=poll_timeout)
         except TelegramError as exc:
             # exc carries method/status/description only — never the token.
             log.warning("poll failed, retrying: %s", exc)

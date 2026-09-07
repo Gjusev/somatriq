@@ -47,34 +47,56 @@ def night_window(days_ago: int) -> tuple[datetime, datetime]:
 def seed_night(days_ago: int, rmssd_target: int, rhr_quiet: int) -> None:
     start, wake = night_window(days_ago)
     # sleep session
-    ack = post("/api/v1/ingest/sleep-sessions", {
-        "batch_id": str(uuid4()), "schema_version": "1", "decoder_version": "m6-seed/1",
-        "sessions": [{
-            "source_record_id": f"m6-seed-sleep-{days_ago}",
-            "start_ts": start.isoformat(), "end_ts": wake.isoformat(),
-            "efficiency": 0.9, "resting_hr": rhr_quiet, "avg_hrv": float(rmssd_target),
-            "user_edited": False, "stages": [
-                {"state": "deep", "start_ts": (start + timedelta(hours=2)).isoformat(),
-                 "end_ts": (start + timedelta(hours=3)).isoformat()},
+    ack = post(
+        "/api/v1/ingest/sleep-sessions",
+        {
+            "batch_id": str(uuid4()),
+            "schema_version": "1",
+            "decoder_version": "m6-seed/1",
+            "sessions": [
+                {
+                    "source_record_id": f"m6-seed-sleep-{days_ago}",
+                    "start_ts": start.isoformat(),
+                    "end_ts": wake.isoformat(),
+                    "efficiency": 0.9,
+                    "resting_hr": rhr_quiet,
+                    "avg_hrv": float(rmssd_target),
+                    "user_edited": False,
+                    "stages": [
+                        {
+                            "state": "deep",
+                            "start_ts": (start + timedelta(hours=2)).isoformat(),
+                            "end_ts": (start + timedelta(hours=3)).isoformat(),
+                        },
+                    ],
+                }
             ],
-        }],
-    })
+        },
+    )
     assert ack["accepted"], ack
     # RR inside the window: pattern gives RMSSD exactly rmssd_target
     rr: list[dict[str, object]] = []
     t = start + timedelta(minutes=5)
     while t < wake - timedelta(minutes=5) and len(rr) < 400:
         for i, base in enumerate([800, 800 + rmssd_target]):
-            rr.append({
-                "source_record_id": f"m6-seed-rr-{days_ago}-{len(rr)}",
-                "ts": (t + timedelta(milliseconds=500 * i)).isoformat(),
-                "rr_ms": base, "seq": len(rr),
-            })
+            rr.append(
+                {
+                    "source_record_id": f"m6-seed-rr-{days_ago}-{len(rr)}",
+                    "ts": (t + timedelta(milliseconds=500 * i)).isoformat(),
+                    "rr_ms": base,
+                    "seq": len(rr),
+                }
+            )
         t += timedelta(seconds=4)
-    ack = post("/api/v1/ingest/rr-intervals", {
-        "batch_id": str(uuid4()), "schema_version": "1", "decoder_version": "m6-seed/1",
-        "records": rr,
-    })
+    ack = post(
+        "/api/v1/ingest/rr-intervals",
+        {
+            "batch_id": str(uuid4()),
+            "schema_version": "1",
+            "decoder_version": "m6-seed/1",
+            "records": rr,
+        },
+    )
     assert ack["accepted"], ack
     # HR for the day: 40 buckets (5 min each) with quiet hour at rhr_quiet
     day_start = wake.replace(hour=10, minute=0, second=0, microsecond=0)
@@ -83,15 +105,22 @@ def seed_night(days_ago: int, rmssd_target: int, rhr_quiet: int) -> None:
         bucket_t = day_start + timedelta(minutes=5 * b)
         bpm = float(rhr_quiet if b < 6 else rhr_quiet + 15 + (b % 10))
         for s in range(6):
-            records.append({
-                "source_record_id": f"m6-seed-hr-{days_ago}-{b}-{s}",
-                "ts": (bucket_t + timedelta(seconds=s)).isoformat(),
-                "bpm": bpm,
-            })
-    ack = post("/api/v1/ingest/batches", {
-        "batch_id": str(uuid4()), "schema_version": "1", "decoder_version": "m6-seed/1",
-        "records": records,
-    })
+            records.append(
+                {
+                    "source_record_id": f"m6-seed-hr-{days_ago}-{b}-{s}",
+                    "ts": (bucket_t + timedelta(seconds=s)).isoformat(),
+                    "bpm": bpm,
+                }
+            )
+    ack = post(
+        "/api/v1/ingest/batches",
+        {
+            "batch_id": str(uuid4()),
+            "schema_version": "1",
+            "decoder_version": "m6-seed/1",
+            "records": records,
+        },
+    )
     assert ack["accepted"], ack
     print(f"  night -{days_ago}d: rmssd {rmssd_target} | {len(rr)} RR + {len(records)} HR")
 

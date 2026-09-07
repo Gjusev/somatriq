@@ -279,9 +279,7 @@ async def get_baselines(
         coverage={"days_available": n, "window_days": days},
         sources=[source_table],
         quality=n / days,
-        caveats=(
-            [f"{days - n} of {days} window days have no {metric} values"] if n < days else []
-        ),
+        caveats=([f"{days - n} of {days} window days have no {metric} values"] if n < days else []),
     )
 
 
@@ -353,9 +351,7 @@ async def get_trends(
             "direction": _direction(slope),
             "slope_per_day": None if slope is None else round(slope, 6),
             "n_points": n,
-            "series": [
-                {"date": day.isoformat(), "value": value} for day, value in values
-            ],
+            "series": [{"date": day.isoformat(), "value": value} for day, value in values],
             "window_days": days,
             "algorithm_version": TREND_ALGORITHM,
             "source": source_table,

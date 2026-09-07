@@ -106,9 +106,7 @@ async def ask(
     try:
         engine = build_engine()
     except ExternalProviderRefused as exc:
-        raise ApiError(
-            status_code=503, code=ErrorCode.PERMANENT, message=str(exc)
-        ) from None
+        raise ApiError(status_code=503, code=ErrorCode.PERMANENT, message=str(exc)) from None
 
     try:
         result = await engine.answer(body.question, user_id, session)

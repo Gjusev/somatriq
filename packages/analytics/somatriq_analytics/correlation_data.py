@@ -155,10 +155,7 @@ async def matrix_series(
     session: AsyncSession, metrics: tuple[str, ...], days: int, tz: ZoneInfo
 ) -> dict[str, list[tuple[date, float]]]:
     """Load every matrix metric's series once — pairs then join in Python."""
-    return {
-        metric: await daily_metric_series(session, metric, days, tz)
-        for metric in metrics
-    }
+    return {metric: await daily_metric_series(session, metric, days, tz) for metric in metrics}
 
 
 def _first_day(days: int, tz: ZoneInfo) -> date:
@@ -213,9 +210,11 @@ async def _journal_count_series(
             "WHERE kind = :kind AND ts >= :first_start "
             "GROUP BY 1 ORDER BY 1"
         ),
-        {"tz": tz.key, "kind": kind, "first_start": datetime(
-            first.year, first.month, first.day, tzinfo=tz
-        ).astimezone(UTC)},
+        {
+            "tz": tz.key,
+            "kind": kind,
+            "first_start": datetime(first.year, first.month, first.day, tzinfo=tz).astimezone(UTC),
+        },
     )
     return [(day, float(value)) for day, value in result.all()]
 
@@ -256,9 +255,7 @@ async def training_load_series(
             "WHERE s.ts >= :first_start "
             "ORDER BY s.ts, t.exercise, t.set_index"
         ),
-        {"first_start": datetime(
-            first.year, first.month, first.day, tzinfo=tz
-        ).astimezone(UTC)},
+        {"first_start": datetime(first.year, first.month, first.day, tzinfo=tz).astimezone(UTC)},
     )
     sessions: dict[uuid.UUID, tuple[date, list[StrengthSet]]] = {}
     for row_id, row_ts, exercise, weight_kg, reps, rir, rpe in result.all():

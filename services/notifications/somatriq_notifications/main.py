@@ -64,9 +64,7 @@ async def drain_loop(
 ) -> None:
     session_factory = get_session_factory()
     senders = build_senders()
-    log.info(
-        "drain loop started (senders: %s)", ", ".join(sorted(senders)) or "none"
-    )
+    log.info("drain loop started (senders: %s)", ", ".join(sorted(senders)) or "none")
     while stop is None or not stop.is_set():
         try:
             async with session_factory() as session:
@@ -91,9 +89,9 @@ def main() -> None:
     server = HTTPServer(("0.0.0.0", PORT), _Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
-        asyncio.run(drain_loop(
-            poll_seconds=float(os.environ.get("NOTIFICATIONS_POLL_SECONDS", "5"))
-        ))
+        asyncio.run(
+            drain_loop(poll_seconds=float(os.environ.get("NOTIFICATIONS_POLL_SECONDS", "5")))
+        )
     except KeyboardInterrupt:
         log.info("notifications stopped")
 

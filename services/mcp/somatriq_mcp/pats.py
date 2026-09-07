@@ -84,9 +84,7 @@ async def mint_pat(
         name=name,
         token_hash=hash_pat(token),
         scopes=list(scopes),
-        expires_at=(
-            datetime.now(UTC) + timedelta(days=expires_days) if expires_days else None
-        ),
+        expires_at=(datetime.now(UTC) + timedelta(days=expires_days) if expires_days else None),
     )
     session.add(row)
     await session.commit()
@@ -112,9 +110,7 @@ async def verify_pat(
     """
     row = (
         await session.execute(
-            select(PersonalAccessToken).where(
-                PersonalAccessToken.token_hash == hash_pat(token)
-            )
+            select(PersonalAccessToken).where(PersonalAccessToken.token_hash == hash_pat(token))
         )
     ).scalar_one_or_none()
     now = datetime.now(UTC)

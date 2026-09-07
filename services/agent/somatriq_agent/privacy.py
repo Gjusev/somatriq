@@ -206,8 +206,7 @@ def _journal_summary(result: Mapping[str, Any]) -> ResultDict:
     """summary_only: kind + timestamps only — no text, no structured values."""
     data = result.get("data") or {}
     events = [
-        {"kind": event.get("kind"), "ts": event.get("ts")}
-        for event in (data.get("events") or [])
+        {"kind": event.get("kind"), "ts": event.get("ts")} for event in (data.get("events") or [])
     ]
     return _rebuild(
         result,
@@ -283,9 +282,7 @@ _BASELINE_METADATA_KEYS: Final[tuple[str, ...]] = (
 def _baselines_summary(result: Mapping[str, Any]) -> ResultDict:
     """summary_only: status + counts only — no median/quartiles/min/max."""
     data = result.get("data") or {}
-    return _rebuild(
-        result, data={key: data[key] for key in _BASELINE_METADATA_KEYS if key in data}
-    )
+    return _rebuild(result, data={key: data[key] for key in _BASELINE_METADATA_KEYS if key in data})
 
 
 # ── get_trends ───────────────────────────────────────────────────────────
@@ -303,9 +300,7 @@ _TREND_METADATA_KEYS: Final[tuple[str, ...]] = (
 def _trends_summary(result: Mapping[str, Any]) -> ResultDict:
     """summary_only: the direction word only — no slope, no series."""
     data = result.get("data") or {}
-    return _rebuild(
-        result, data={key: data[key] for key in _TREND_METADATA_KEYS if key in data}
-    )
+    return _rebuild(result, data={key: data[key] for key in _TREND_METADATA_KEYS if key in data})
 
 
 # ── per-level redactor tables ────────────────────────────────────────────

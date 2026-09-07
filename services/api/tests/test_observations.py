@@ -152,9 +152,7 @@ def _rr_payload(batch_id: str, records: list[dict[str, object]]) -> dict[str, ob
     }
 
 
-async def _pair_device(
-    client: httpx.AsyncClient, name: str = "pixel-obs"
-) -> tuple[str, str, str]:
+async def _pair_device(client: httpx.AsyncClient, name: str = "pixel-obs") -> tuple[str, str, str]:
     """Register + pair; returns (device_token, device_id, account_jwt) — the
     account JWT rides the owner-side reads (spec §122)."""
     register = await client.post(
@@ -298,9 +296,7 @@ async def test_daily_observations_device_token_principal(
     )
     assert response.status_code == 200, response.text
 
-    row = (
-        await db.execute(text("SELECT user_id, device_id FROM health.daily_observations"))
-    ).one()
+    row = (await db.execute(text("SELECT user_id, device_id FROM health.daily_observations"))).one()
     assert str(row.device_id) == device_id
 
 
@@ -352,13 +348,17 @@ async def test_sleep_sessions_happy_path_with_stages(
     assert str(session_row.raw_batch_id) == str(body["batch_id"])
 
     stages: Sequence[str] = (
-        await db.execute(
-            text(
-                "SELECT state FROM health.sleep_stages "
-                "WHERE session_source_record_id = 'sleep-1' ORDER BY stage_start_ts"
+        (
+            await db.execute(
+                text(
+                    "SELECT state FROM health.sleep_stages "
+                    "WHERE session_source_record_id = 'sleep-1' ORDER BY stage_start_ts"
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert stages == ["deep", "rem"]
 
 
@@ -368,9 +368,7 @@ async def test_sleep_sessions_replay_skips_stages_too(
 ) -> None:
     """Replay: duplicate sessions count once and their stages are not rewritten."""
     start = datetime(2026, 9, 1, 22, 0, tzinfo=UTC)
-    body = _sleep_payload(
-        str(uuid.uuid4()), [_session_dict("sleep-1", start, [("deep", 60)])]
-    )
+    body = _sleep_payload(str(uuid.uuid4()), [_session_dict("sleep-1", start, [("deep", 60)])])
     assert (await api.post(SLEEP_INGEST_PATH, json=body)).status_code == 200
 
     replay = await api.post(SLEEP_INGEST_PATH, json=body)
@@ -422,9 +420,7 @@ async def test_sleep_sessions_overlapping_batch_skips_duplicate_stages(
 ) -> None:
     """A duplicate session counts as duplicate and its stages are skipped."""
     start = datetime(2026, 9, 1, 22, 0, tzinfo=UTC)
-    first = _sleep_payload(
-        str(uuid.uuid4()), [_session_dict("sleep-1", start, [("deep", 60)])]
-    )
+    first = _sleep_payload(str(uuid.uuid4()), [_session_dict("sleep-1", start, [("deep", 60)])])
     assert (await api.post(SLEEP_INGEST_PATH, json=first)).status_code == 200
 
     second = _sleep_payload(
@@ -457,9 +453,7 @@ async def test_sleep_sessions_device_token_principal(
     """Bearer sqt_dev_… sessions land under the paired device."""
     token, device_id, _ = await _pair_device(guarded_api)
     start = datetime(2026, 9, 1, 22, 0, tzinfo=UTC)
-    body = _sleep_payload(
-        str(uuid.uuid4()), [_session_dict("sleep-1", start, [("deep", 45)])]
-    )
+    body = _sleep_payload(str(uuid.uuid4()), [_session_dict("sleep-1", start, [("deep", 45)])])
 
     response = await guarded_api.post(
         SLEEP_INGEST_PATH, json=body, headers={"Authorization": f"Bearer {token}"}
@@ -467,8 +461,10 @@ async def test_sleep_sessions_device_token_principal(
     assert response.status_code == 200, response.text
 
     device_ids: Sequence[str] = (
-        await db.execute(text("SELECT device_id::text FROM health.sleep_sessions"))
-    ).scalars().all()
+        (await db.execute(text("SELECT device_id::text FROM health.sleep_sessions")))
+        .scalars()
+        .all()
+    )
     assert device_ids == [device_id]
 
 
@@ -620,8 +616,10 @@ async def test_rr_intervals_device_token_principal(
     assert response.status_code == 200, response.text
 
     device_ids: Sequence[str] = (
-        await db.execute(text("SELECT device_id::text FROM timeseries.rr_interval"))
-    ).scalars().all()
+        (await db.execute(text("SELECT device_id::text FROM timeseries.rr_interval")))
+        .scalars()
+        .all()
+    )
     assert device_ids == [device_id]
 
 

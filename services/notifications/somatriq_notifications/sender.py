@@ -53,9 +53,7 @@ class NtfySender:
 
     def send(self, topic: str, message: str) -> None:
         url = f"{self._base_url}/{quote(topic, safe='')}"
-        request = urllib.request.Request(
-            url, data=message.encode("utf-8"), method="POST"
-        )
+        request = urllib.request.Request(url, data=message.encode("utf-8"), method="POST")
         try:
             with self._opener.open(request, timeout=self._timeout) as response:
                 response.read()

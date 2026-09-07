@@ -208,9 +208,7 @@ async def roll_forward(
     await session.commit()
 
 
-async def _day_rows(
-    session: AsyncSession, experiment_id: uuid.UUID
-) -> list[ExperimentDay]:
+async def _day_rows(session: AsyncSession, experiment_id: uuid.UUID) -> list[ExperimentDay]:
     return list(
         (
             await session.execute(
@@ -287,9 +285,7 @@ async def _evaluate_experiment(
             code=ErrorCode.PERMANENT,
             message=f"invalid direction stored on experiment: {direction!r}",
         )
-    result = evaluate(
-        baseline_values, intervention_values, cast(Direction, direction)
-    )
+    result = evaluate(baseline_values, intervention_values, cast(Direction, direction))
     return _evaluation_response(result, excluded)
 
 
@@ -307,9 +303,7 @@ def _progress(
         max((today - intervention_first).days + 1, 0), experiment.intervention_days
     )
     return {
-        "baseline": PhaseProgress(
-            elapsed=baseline_elapsed, total=experiment.baseline_days
-        ),
+        "baseline": PhaseProgress(elapsed=baseline_elapsed, total=experiment.baseline_days),
         "intervention": PhaseProgress(
             elapsed=intervention_elapsed, total=experiment.intervention_days
         ),
@@ -423,9 +417,7 @@ async def create_experiment(
 
 @router.get("", response_model=list[ExperimentResponse])
 @router.get("/", response_model=list[ExperimentResponse])
-async def list_experiments(
-    user_id: ReadUserDep, session: SessionDep
-) -> list[ExperimentResponse]:
+async def list_experiments(user_id: ReadUserDep, session: SessionDep) -> list[ExperimentResponse]:
     """Every experiment with live progress, compliance and (once completed)
     the evaluation — account JWT or data.read device token (spec §122),
     scoped to the authenticated user."""
@@ -498,8 +490,7 @@ async def checkin(
         raise ApiError(
             422,
             ErrorCode.VALIDATION,
-            "day outside the experiment window "
-            f"({first.isoformat()} .. {last.isoformat()})",
+            f"day outside the experiment window ({first.isoformat()} .. {last.isoformat()})",
         )
     # Reads and check-ins both advance the ledger (spec §85): the day rows
     # through today exist before the upsert lands on one of them.
@@ -536,9 +527,7 @@ async def complete_experiment(
     tz = ZoneInfo(get_settings().user_timezone)
     experiment = await _fetch_experiment(session, experiment_id, user_id)
     if experiment.status == "abandoned":
-        raise ApiError(
-            422, ErrorCode.VALIDATION, "an abandoned experiment cannot complete"
-        )
+        raise ApiError(422, ErrorCode.VALIDATION, "an abandoned experiment cannot complete")
     if experiment.status != "completed":
         experiment.status = "completed"
         experiment.completed_at = datetime.now(UTC)

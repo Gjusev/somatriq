@@ -35,9 +35,7 @@ from typing import Final, Literal
 # The hard floor: fewer shared days than this never yields a coefficient.
 MIN_OVERLAP_DAYS: Final = 14
 
-INSUFFICIENT_OVERLAP_REASON: Final = (
-    "insufficient overlap — need at least 14 shared days"
-)
+INSUFFICIENT_OVERLAP_REASON: Final = "insufficient overlap — need at least 14 shared days"
 ZERO_VARIANCE_REASON: Final = (
     "one series does not vary over the shared days — correlation undefined"
 )
@@ -146,8 +144,7 @@ def _regularized_incomplete_beta(a: float, b: float, x: float) -> float:
     if x >= 1.0:
         return 1.0
     front = math.exp(
-        math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
-        + a * math.log(x) + b * math.log1p(-x)
+        math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b) + a * math.log(x) + b * math.log1p(-x)
     )
     # Use the fraction that converges quickly for the given x.
     if x < (a + 1.0) / (a + b + 2.0):
@@ -178,9 +175,7 @@ def spearman(xs: Sequence[float], ys: Sequence[float]) -> CorrelationResult | No
     return _correlate(rankdata(xs), rankdata(ys), P_METHOD_SPEARMAN)
 
 
-def _correlate(
-    xs: Sequence[float], ys: Sequence[float], p_method: str
-) -> CorrelationResult | None:
+def _correlate(xs: Sequence[float], ys: Sequence[float], p_method: str) -> CorrelationResult | None:
     if len(xs) != len(ys):
         raise ValueError("xs and ys must have the same length")
     n = len(xs)
@@ -223,10 +218,7 @@ def rankdata(values: Sequence[float]) -> list[float]:
     i = 0
     while i < len(order):
         j = i
-        while (
-            j + 1 < len(order)
-            and values[order[j + 1]] == values[order[i]]
-        ):
+        while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
             j += 1
         average_rank = (i + j) / 2.0 + 1.0  # positions i..j (0-based) → 1-based
         for k in range(i, j + 1):

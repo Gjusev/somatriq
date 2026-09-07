@@ -67,10 +67,7 @@ async def test_expired_token_is_401(
     user_id, _ = user_device_ids
     minted = await pats.mint_pat(db, user_id, "old-token")
     await db.execute(
-        text(
-            "UPDATE identity.personal_access_tokens "
-            "SET expires_at = :past WHERE id = :id"
-        ),
+        text("UPDATE identity.personal_access_tokens SET expires_at = :past WHERE id = :id"),
         {"past": datetime.now(UTC) - timedelta(days=1), "id": minted.row.id},
     )
     await db.commit()
@@ -89,10 +86,7 @@ async def test_revoked_token_is_flat_403(
     user_id, _ = user_device_ids
     minted = await pats.mint_pat(db, user_id, "revoked-token")
     await db.execute(
-        text(
-            "UPDATE identity.personal_access_tokens "
-            "SET revoked_at = now() WHERE id = :id"
-        ),
+        text("UPDATE identity.personal_access_tokens SET revoked_at = now() WHERE id = :id"),
         {"id": minted.row.id},
     )
     await db.commit()

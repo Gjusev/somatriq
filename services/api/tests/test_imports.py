@@ -30,9 +30,7 @@ CONNECTORS = "/api/v1/connectors"
 REGISTER = "/api/v1/auth/register"
 
 CSV = "date,weight_kg,steps,mood\n2026-01-05,80.0,9000,fine\n2026-01-06,80.4,9500,fine\n"
-CSV_WITH_DUP = (
-    "date,weight_kg\n2026-01-05,80.0\n2026-01-05,81.0\n2026-01-06,82.0\n"
-)
+CSV_WITH_DUP = "date,weight_kg\n2026-01-05,80.0\n2026-01-05,81.0\n2026-01-06,82.0\n"
 
 
 def _b64(csv_text: str) -> str:
@@ -87,9 +85,7 @@ async def test_preview_requires_account_jwt(api: httpx.AsyncClient) -> None:
 
 @requires_db
 async def test_commit_requires_account_jwt(api: httpx.AsyncClient) -> None:
-    response = await api.post(
-        COMMIT, json={"content_b64": _b64(CSV), "preview_token": "1.abc"}
-    )
+    response = await api.post(COMMIT, json={"content_b64": _b64(CSV), "preview_token": "1.abc"})
     assert response.status_code == 401
 
 
@@ -168,14 +164,10 @@ async def test_preview_counts_unknown_columns_and_pairs_already_in_db(
 
 
 @requires_db
-async def test_preview_rejects_empty_garbage_and_bad_base64(
-    api: httpx.AsyncClient
-) -> None:
+async def test_preview_rejects_empty_garbage_and_bad_base64(api: httpx.AsyncClient) -> None:
     token = await _register(api)
 
-    empty = await api.post(
-        PREVIEW, json={"content_b64": _b64("   \n")}, headers=_auth(token)
-    )
+    empty = await api.post(PREVIEW, json={"content_b64": _b64("   \n")}, headers=_auth(token))
     assert empty.status_code == 422
     assert "empty" in empty.json()["message"]
 
@@ -212,9 +204,7 @@ async def test_commit_imports_through_the_ingest_path(
     assert body["ack"]["records_received"] == 4
     assert body["ack"]["records_inserted"] == 4
     assert body["ack"]["records_duplicate"] == 0
-    assert body["validation_warnings"] == [
-        {"line": 1, "reason": "unknown columns skipped: mood"}
-    ]
+    assert body["validation_warnings"] == [{"line": 1, "reason": "unknown columns skipped: mood"}]
 
     rows = (
         await db.execute(
@@ -259,20 +249,14 @@ async def test_recommit_of_the_same_file_is_all_duplicates(
     assert ack["records_duplicate"] == 4
     assert "duplicate batch replay" in ack["warnings"]
 
-    count = (
-        await db.execute(text("SELECT count(*) FROM health.daily_observations"))
-    ).scalar_one()
+    count = (await db.execute(text("SELECT count(*) FROM health.daily_observations"))).scalar_one()
     assert count == 4
 
 
 @requires_db
-async def test_commit_rejects_token_bound_to_different_content(
-    api: httpx.AsyncClient
-) -> None:
+async def test_commit_rejects_token_bound_to_different_content(api: httpx.AsyncClient) -> None:
     token = await _register(api)
-    other_preview = (
-        await _preview(api, token, "date,steps\n2026-02-01,1000\n")
-    ).json()
+    other_preview = (await _preview(api, token, "date,steps\n2026-02-01,1000\n")).json()
 
     response = await api.post(
         COMMIT,
@@ -284,23 +268,21 @@ async def test_commit_rejects_token_bound_to_different_content(
 
 
 @requires_db
-async def test_commit_rejects_expired_and_malformed_tokens(
-    api: httpx.AsyncClient
-) -> None:
+async def test_commit_rejects_expired_and_malformed_tokens(api: httpx.AsyncClient) -> None:
     token = await _register(api)
 
-    expired = sign_preview_token(
-        _sha(CSV), datetime.now(UTC) - timedelta(seconds=1)
-    )
+    expired = sign_preview_token(_sha(CSV), datetime.now(UTC) - timedelta(seconds=1))
     expired_response = await api.post(
-        COMMIT, json={"content_b64": _b64(CSV), "preview_token": expired},
+        COMMIT,
+        json={"content_b64": _b64(CSV), "preview_token": expired},
         headers=_auth(token),
     )
     assert expired_response.status_code == 422
     assert "expired" in expired_response.json()["message"]
 
     malformed = await api.post(
-        COMMIT, json={"content_b64": _b64(CSV), "preview_token": "not-a-token"},
+        COMMIT,
+        json={"content_b64": _b64(CSV), "preview_token": "not-a-token"},
         headers=_auth(token),
     )
     assert malformed.status_code == 422
@@ -308,9 +290,7 @@ async def test_commit_rejects_expired_and_malformed_tokens(
 
 
 @requires_db
-async def test_commit_rejects_file_with_no_importable_rows(
-    api: httpx.AsyncClient
-) -> None:
+async def test_commit_rejects_file_with_no_importable_rows(api: httpx.AsyncClient) -> None:
     token = await _register(api)
     csv_all_bad = "date,weight_kg\nnot-a-date,80.0\n"
     preview = (await _preview(api, token, csv_all_bad)).json()
@@ -327,9 +307,7 @@ async def test_commit_rejects_file_with_no_importable_rows(
 
 
 @requires_db
-async def test_connectors_lists_registry_with_honest_health(
-    api: httpx.AsyncClient
-) -> None:
+async def test_connectors_lists_registry_with_honest_health(api: httpx.AsyncClient) -> None:
     token = await _register(api)
     response = await api.get(CONNECTORS, headers=_auth(token))
     assert response.status_code == 200

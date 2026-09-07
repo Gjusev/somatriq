@@ -104,12 +104,11 @@ def recovery_v1(
         pair = baselines.get(key)
         if pair is None:
             caveats.append(
-                f"baseline insufficient for {key}: "
-                f"needs >= {RECOVERY_BASELINE_MIN_DAYS} days"
+                f"baseline insufficient for {key}: needs >= {RECOVERY_BASELINE_MIN_DAYS} days"
             )
-            contributions.append(RecoveryContribution(
-                input=key, value=value, note="baseline insufficient"
-            ))
+            contributions.append(
+                RecoveryContribution(input=key, value=value, note="baseline insufficient")
+            )
             continue
         median, iqr = pair
         z_prime = _ORIENTATION[key] * robust_z(value, median, iqr)
@@ -120,14 +119,16 @@ def recovery_v1(
             kind = "negative"
         else:
             kind = "neutral"
-        contributions.append(RecoveryContribution(
-            input=key,
-            value=value,
-            baseline_median=median,
-            baseline_iqr=iqr,
-            robust_z=round(z_prime, 4),
-            contribution=kind,
-        ))
+        contributions.append(
+            RecoveryContribution(
+                input=key,
+                value=value,
+                baseline_median=median,
+                baseline_iqr=iqr,
+                robust_z=round(z_prime, 4),
+                contribution=kind,
+            )
+        )
 
     # Spec §76 lists five contributions; temperature and training load have
     # no v1 input and are reported neutral with the frozen note.
@@ -136,9 +137,9 @@ def recovery_v1(
 
     score: float | None = None
     if len(oriented) == len(_V1_INPUTS):
-        inner = 0.5 + sum(
-            RECOVERY_WEIGHTS[key] * math.tanh(oriented[key]) for key in _V1_INPUTS
-        ) / 2
+        inner = (
+            0.5 + sum(RECOVERY_WEIGHTS[key] * math.tanh(oriented[key]) for key in _V1_INPUTS) / 2
+        )
         score = round(100.0 * min(max(inner, 0.0), 1.0), 2)
 
     return RecoveryResult(

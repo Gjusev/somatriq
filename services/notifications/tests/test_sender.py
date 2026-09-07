@@ -72,7 +72,7 @@ class _FakeHTTPHandler(urllib.request.HTTPHandler):
 
 
 def _opener(
-    respond: Callable[[urllib.request.Request], tuple[int, bytes]]
+    respond: Callable[[urllib.request.Request], tuple[int, bytes]],
 ) -> tuple[urllib.request.OpenerDirector, _FakeHTTPHandler]:
     handler = _FakeHTTPHandler(respond)
     return urllib.request.build_opener(handler, urllib.request.ProxyHandler({})), handler
@@ -113,9 +113,7 @@ def test_ntfy_unreachable_becomes_ntfy_error() -> None:
 
 
 def test_telegram_sender_delegates_to_telegram_client() -> None:
-    opener, handler = _opener(
-        lambda req: (200, json.dumps({"ok": True, "result": {}}).encode())
-    )
+    opener, handler = _opener(lambda req: (200, json.dumps({"ok": True, "result": {}}).encode()))
     client = TelegramClient("tok", api_base="http://telegram.test", opener=opener)
     send = telegram_sender(client)
     send("12345", "hello")
@@ -184,9 +182,7 @@ async def _seed_outbox(
 
 async def _row(db: AsyncSession, outbox_id: uuid.UUID) -> tuple[str, int, str | None]:
     result = await db.execute(
-        text(
-            "SELECT status, attempts, last_error FROM notifications.outbox WHERE id = :id"
-        ),
+        text("SELECT status, attempts, last_error FROM notifications.outbox WHERE id = :id"),
         {"id": outbox_id},
     )
     row = result.one()
