@@ -332,6 +332,7 @@ async def test_days_param_bounds_422(
         assert response.status_code == 422, days
 
 
+@requires_db
 async def test_open_day_refreshes_on_late_samples(
     metrics_client: TestClient, db: AsyncSession
 ) -> None:

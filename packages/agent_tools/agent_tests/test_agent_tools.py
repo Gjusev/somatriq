@@ -359,6 +359,7 @@ async def test_get_baselines_insufficient_never_fakes_numbers(db: AsyncSession) 
     assert any("insufficient data" in caveat for caveat in result["caveats"])
 
 
+@requires_db
 async def test_get_baselines_rejects_unknown_metric_and_window(db: AsyncSession) -> None:
     with pytest.raises(ToolValidationError, match="unsupported metric"):
         await get_baselines(db, metric="bogus", tz=UTC_TZ, now=FROZEN_NOW)
@@ -416,6 +417,7 @@ async def test_get_trends_insufficient_below_two_points(db: AsyncSession) -> Non
     assert any("at least 2 days" in caveat for caveat in result["caveats"])
 
 
+@requires_db
 async def test_get_trends_rejects_unknown_metric(db: AsyncSession) -> None:
     with pytest.raises(ToolValidationError):
         await get_trends(db, metric="hrv", tz=UTC_TZ, now=FROZEN_NOW)
@@ -507,6 +509,7 @@ async def test_get_data_quality_empty_window(db: AsyncSession) -> None:
     assert result["quality"] == 0.0
 
 
+@requires_db
 async def test_get_data_quality_rejects_bad_window(db: AsyncSession) -> None:
     with pytest.raises(ToolValidationError):
         await get_data_quality(db, days=400, tz=UTC_TZ, now=FROZEN_NOW)
