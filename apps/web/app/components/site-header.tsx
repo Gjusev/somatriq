@@ -92,8 +92,10 @@ export default function SiteHeader() {
       <nav className="site-nav" aria-label="Primary">
         <div className="site-section-links">
           <Link href="/#today">Today</Link>
+          <Link href="/explore/">Explore</Link>
           <Link href="/#patterns">Patterns</Link>
           <Link href="/#interventions">Interventions</Link>
+          <Link href="/health-monitor/">Monitor</Link>
           <Link href="/#ownership">Data</Link>
         </div>
         <div className="site-actions">

@@ -1791,3 +1791,141 @@ export function experimentDraftFromInsight(row: BehaviorInsight): ExperimentDraf
 export function isDeletableKind(kind: string): boolean {
   return DELETABLE_KINDS[kind] === true;
 }
+
+// ── Explore + Health Monitor (Block 3; grill P12/P14) ─────────────────────
+
+export type ExplorePointWire = { date: string; value: number; coverage: number | null };
+
+export type ExploreMetricSeriesWire = {
+  metric: string;
+  source_kind: string;
+  dominant_device: string | null;
+  days: ExplorePointWire[];
+};
+
+export type ExploreSeries = {
+  from_date: string;
+  to_date: string;
+  timezone: string;
+  metrics: ExploreMetricSeriesWire[];
+};
+
+export type ExploreContext = {
+  from_date: string;
+  to_date: string;
+  timezone: string;
+  devices: { id: string; name: string; model: string; active_from: string; active_to: string | null }[];
+  algorithms: { name: string; description: string; first_seen: string | null }[];
+  journal_kinds: { kind: string; days: number }[];
+  training_days: { date: string; sessions: number }[];
+  timezone_changes: { date: string; timezone: string }[];
+};
+
+export type Annotation = {
+  id: string;
+  date_from: string;
+  date_to: string | null;
+  title: string;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HealthMonitorVital = {
+  vital: string;
+  label: string;
+  source: string;
+  n_days: number;
+  coverage: number;
+  period_median: number | null;
+  baseline_median: number | null;
+  robust_z: number | null;
+  status: "within" | "elevated" | "reduced" | "building" | "insufficient";
+  note: string | null;
+};
+
+export type HealthMonitor = {
+  days: number;
+  timezone: string;
+  vitals: HealthMonitorVital[];
+  caveats: string[];
+  disclaimer: string;
+};
+
+function parseExploreSeries(raw: unknown): ExploreSeries {
+  if (!isRecord(raw)) unexpected();
+  const metricsRaw = Array.isArray(raw.metrics) ? raw.metrics : [];
+  const metrics = metricsRaw.map((entry) => {
+    if (!isRecord(entry)) unexpected();
+    const daysRaw = Array.isArray(entry.days) ? entry.days : [];
+    return {
+      metric: parseString(entry.metric),
+      source_kind: parseString(entry.source_kind),
+      dominant_device: parseNullableString(entry.dominant_device ?? null),
+      days: daysRaw.map((day) => {
+        if (!isRecord(day)) unexpected();
+        return {
+          date: parseDay(day.date),
+          value: parseFiniteNumber(day.value) ?? unexpected(),
+          coverage: parseOptionalRatio(day.coverage),
+        };
+      }),
+    };
+  });
+  return {
+    from_date: parseDay(raw.from_date),
+    to_date: parseDay(raw.to_date),
+    timezone: parseString(raw.timezone),
+    metrics,
+  };
+}
+
+function passthrough<T>(raw: unknown): T {
+  return raw as T;
+}
+
+export function fetchExploreSeries(
+  metrics: string[],
+  fromDate: string,
+  toDate: string,
+): Promise<ExploreSeries> {
+  const params = new URLSearchParams({
+    metrics: metrics.join(","),
+    from_date: fromDate,
+    to_date: toDate,
+  });
+  return getJson(`/api/v1/explore/series?${params}`, true, parseExploreSeries);
+}
+
+export function fetchExploreContext(fromDate: string, toDate: string): Promise<ExploreContext> {
+  const params = new URLSearchParams({ from_date: fromDate, to_date: toDate });
+  return getJson(`/api/v1/explore/context?${params}`, true, passthrough<ExploreContext>);
+}
+
+export function fetchAnnotations(): Promise<Annotation[]> {
+  return getJson("/api/v1/annotations", true, passthrough<Annotation[]>);
+}
+
+export function createAnnotation(body: {
+  date_from: string;
+  date_to?: string | null;
+  title: string;
+  note?: string | null;
+}): Promise<Annotation> {
+  return postJson("/api/v1/annotations", body, true, passthrough<Annotation>);
+}
+
+export async function deleteAnnotation(id: string): Promise<void> {
+  await authRequest(`/api/v1/annotations/${id}`, { method: "DELETE" });
+}
+
+export function fetchHealthMonitor(days: 30 | 90 | 180): Promise<HealthMonitor> {
+  return getJson(`/api/v1/health-monitor?days=${days}`, true, passthrough<HealthMonitor>);
+}
+
+export function downloadHealthReport(days: 30 | 180): Promise<void> {
+  return downloadExportFile(
+    `/api/v1/health-monitor/report.pdf?days=${days}`,
+    `somatriq-health-monitor-${days}d.pdf`,
+  );
+}
