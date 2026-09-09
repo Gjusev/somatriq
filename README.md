@@ -19,6 +19,9 @@ Somatriq is an active, private prototype—not a finished consumer release. This
 - local account auth, phone pairing, scoped device tokens and revocation;
 - idempotent batch ingest for immutable raw frames and canonical observations;
 - heart-rate history, daily features, HRV and an explainable recovery score;
+- a daily Today Plan (training guidance tier, target-strain range, bedtime
+  window) with explainable Sleep Need, capped sleep debt and user
+  preferences;
 - data coverage, freshness, provenance and versioned algorithm semantics;
 - deterministic correlations and N-of-1 experiments with explicit compliance;
 - strength-session logging, load summaries and next-day recovery analysis;
