@@ -11,6 +11,7 @@ Decision log: `docs/grill/2026-09-04-spec-grill.md` · Architecture history: `do
 ## Identity & Sources
 
 **User** — the person whose data Somatriq holds. Initial deployment is one person; IDs are designed so multiple users are possible later without multi-tenant complexity.
+**User Preference** — a single declared personal setting (e.g. target wake time), stored per user and validated against a typed schema per key. Declares intention; never derived from behavior.
 
 **Device** — a physical instrument (e.g. one specific WHOOP 4 band) with an `active_from`/`active_to` lifecycle. A device replacement is an *instrument boundary* (see Baseline).
 
@@ -64,6 +65,13 @@ Decision log: `docs/grill/2026-09-04-spec-grill.md` · Architecture history: `do
 
 All timestamps are stored in UTC (timezone-aware). Source timezone is preserved when semantically relevant.
 
+## Journal
+
+**Journal Event** — a quick-logged user event with an occurrence time, an optional structured payload, and verbatim text for provenance. A user input, never an Observation.
+
+**Behavior** — a journalable exposure with a closed vocabulary (caffeine, alcohol, medication, stress, meal, travel). Binary for analysis; quantities are recorded only when literally stated, never invented.
+**Annotation** — a user-authored note anchored to a date or date range, for marking periods on longitudinal views. Distinct from a Journal Event: it labels time; it does not log an exposure. System facts (device change, algorithm version) are computed overlays, never annotations.
+
 ## Quality & analysis
 
 **Coverage** — the proportion of expected data available for a requested interval.
@@ -74,9 +82,13 @@ All timestamps are stored in UTC (timezone-aware). Source timezone is preserved 
 
 **Feature Set** — the coherent daily feature representation, versioned as `feature_set_version`. Experiments and predictions pin a features version.
 
-**Insight** — a deterministic, human-meaningful candidate finding, ranked (importance, novelty, confidence, actionability) and then explained. AI-written text is always traceable to the deterministic analysis that produced it.
-
-**Prediction** — a model estimate of a future outcome with explicit uncertainty, later scored against the actual result.
+**Vital** — a slow-moving physiological quantity monitored against the personal baseline (HRV, resting HR, respiratory rate, SpO₂, skin-temperature deviation). Deviations are phrased vs the personal baseline, never as clinical abnormality.
+**Insight** — a deterministic, human-meaningful candidate finding. Ranking (importance, novelty, confidence, actionability) and AI-written explanation are presentation layers some surfaces add; AI text is always traceable to the deterministic analysis that produced it.
+**Behavior Insight** — an Insight reporting the association between one day's Behavior exposure and the next day's outcome: group sizes, effect, uncertainty, confounders, and method. Evidence label `Associated`; never causal language.
+**Sleep Need** — a prescriptive, explainable recommendation of tonight's sleep duration derived from personal baselines and recent state. A Derived Metric (`Calculated`), never presented as a Prediction; a later version may be scored against actual sleep and promoted to one.
+**Sleep Debt** — the capped shortfall of measured sleep vs the personal sleep baseline over a rolling short window. Asymmetric: oversleeping never banks credit; always shown with its window and cap.
+**Today Plan** — the day's prescriptive bundle (training guidance, target-strain range, bedtime window), each element carrying its own contributions and caveats. Always present; degrades visibly with data gaps, never disappears.
+**Training Guidance** — a tiered same-day training recommendation (`rest` / `light` / `moderate` / `hard`) derived from recovery and recent state, with an optional target range anchored in the personal recent strain distribution. Guidance, never medical advice.
 
 **Experiment / Intervention / Checkin / Compliance** — N-of-1 research entities. Adherence is recorded `yes`/`no`/`unknown`, never assumed.
 
