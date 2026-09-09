@@ -1620,3 +1620,174 @@ export async function updatePreferences(body: Preferences): Promise<Preferences>
   });
   return parsePreferences(await res.json());
 }
+
+
+// ── Journal quick-log + behavior insights (Block 2; grill P7/P9/P11) ──────
+
+export type JournalEvent = {
+  id: string;
+  kind: string;
+  source: string;
+  ts: string;
+  text: string | null;
+  structured: Record<string, unknown> | null;
+  clientEventId: string | null;
+};
+
+export type JournalDay = { date: string; events: JournalEvent[] };
+
+export type BehaviorConfounders = {
+  strainMedianExposed: number | null;
+  strainMedianUnexposed: number | null;
+  overlapDays: Record<string, number>;
+};
+
+const DELETABLE_KINDS: Record<string, true> = {
+  journal: true,
+  note: true,
+  caffeine: true,
+  alcohol: true,
+  medication: true,
+  stress: true,
+  meal: true,
+  travel: true,
+};
+
+export type BehaviorInsight = {
+  behavior: string;
+  outcome: string;
+  status: "ok" | "keep_logging";
+  nExposed: number;
+  nUnexposed: number;
+  medianExposed: number | null;
+  medianUnexposed: number | null;
+  medianDifference: number | null;
+  pValue: number | null;
+  qValue: number | null;
+  confounders: BehaviorConfounders;
+  method: string;
+  note: string | null;
+};
+
+export type BehaviorInsights = {
+  days: number;
+  timezone: string;
+  rows: BehaviorInsight[];
+  note: string;
+};
+
+
+
+function parseJournalEvent(raw: unknown): JournalEvent {
+  if (!isRecord(raw)) unexpected();
+  return {
+    id: parseString(raw.id),
+    kind: parseString(raw.kind),
+    source: parseString(raw.source),
+    ts: parseString(raw.ts),
+    text: parseNullableString(raw.text ?? null),
+    structured: isRecord(raw.structured) ? (raw.structured as Record<string, unknown>) : null,
+    clientEventId:
+      typeof raw.client_event_id === "string" ? raw.client_event_id : null,
+  };
+}
+
+function parseJournalDay(raw: unknown): JournalDay {
+  if (!isRecord(raw)) unexpected();
+  return {
+    date: parseString(raw.date),
+    events: Array.isArray(raw.events) ? raw.events.map(parseJournalEvent) : [],
+  };
+}
+
+function parseConfounders(raw: unknown): BehaviorConfounders {
+  if (!isRecord(raw)) unexpected();
+  const overlap: Record<string, number> = {};
+  if (isRecord(raw.overlap_days)) {
+    for (const [behavior, count] of Object.entries(raw.overlap_days)) {
+      if (typeof count === "number") overlap[behavior] = count;
+    }
+  }
+  return {
+    strainMedianExposed: parseOptionalFinite(raw.strain_median_exposed),
+    strainMedianUnexposed: parseOptionalFinite(raw.strain_median_unexposed),
+    overlapDays: overlap,
+  };
+}
+
+function parseBehaviorInsight(raw: unknown): BehaviorInsight {
+  if (!isRecord(raw)) unexpected();
+  const status = raw.status === "ok" ? "ok" : "keep_logging";
+  return {
+    behavior: parseString(raw.behavior),
+    outcome: parseString(raw.outcome),
+    status,
+    nExposed: parseCounter(raw.n_exposed),
+    nUnexposed: parseCounter(raw.n_unexposed),
+    medianExposed: parseOptionalFinite(raw.median_exposed),
+    medianUnexposed: parseOptionalFinite(raw.median_unexposed),
+    medianDifference: parseOptionalFinite(raw.median_difference),
+    pValue: parseOptionalFinite(raw.p_value),
+    qValue: parseOptionalFinite(raw.q_value),
+    confounders: parseConfounders(raw.confounders),
+    method: parseString(raw.method),
+    note: parseNullableString(raw.note ?? null),
+  };
+}
+
+function parseBehaviorInsights(raw: unknown): BehaviorInsights {
+  if (!isRecord(raw)) unexpected();
+  return {
+    days: parseCounter(raw.days),
+    timezone: parseString(raw.timezone),
+    rows: Array.isArray(raw.rows) ? raw.rows.map(parseBehaviorInsight) : [],
+    note: parseString(raw.note),
+  };
+}
+
+/** One local day's quick-log events, newest first. */
+export function fetchJournalDay(day?: string): Promise<JournalDay> {
+  const suffix = day === undefined ? "" : `?day=${encodeURIComponent(day)}`;
+  return getJson(`/api/v1/journal${suffix}`, true, parseJournalDay);
+}
+
+/** Quick-log one event; quantity only when literally stated (spec §103). */
+export function logJournalEvent(input: {
+  kind: string;
+  text?: string;
+  quantity?: number;
+}): Promise<JournalEvent> {
+  const body: Record<string, unknown> = { kind: input.kind };
+  if (input.text !== undefined) body.text = input.text;
+  if (input.quantity !== undefined) body.structured = { quantity: input.quantity };
+  return postJson("/api/v1/journal/events", body, true, parseJournalEvent);
+}
+
+/** Owner correction for user-authored kinds (P11); 204 on success. */
+export async function deleteJournalEvent(eventId: string): Promise<void> {
+  await authRequest(`/api/v1/journal/events/${eventId}`, { method: "DELETE" });
+}
+
+/** The frozen insight family: associations, never causal claims. */
+export function fetchBehaviorInsights(days = 90): Promise<BehaviorInsights> {
+  return getJson(`/api/v1/journal/insights?days=${days}`, true, parseBehaviorInsights);
+}
+
+/** Prefilled N-of-1 experiment from an insight (the laboratory loop). */
+export function experimentDraftFromInsight(row: BehaviorInsight): ExperimentDraft {
+  const direction = row.medianDifference !== null && row.medianDifference > 0 ? "higher" : "lower";
+  return {
+    name: `${row.behavior} → next-day ${row.outcome}`,
+    hypothesis:
+      `Days with ${row.behavior} are followed by ${direction} ${row.outcome} ` +
+      `(insight: median difference ${row.medianDifference?.toFixed(1) ?? "?"}, ` +
+      `q=${row.qValue?.toFixed(2) ?? "?"} over ${row.nExposed}+${row.nUnexposed} days)`,
+    intervention: `Change your ${row.behavior} exposure (the journal keeps scoring compliance)`,
+    metric: row.outcome,
+    direction: "any",
+  };
+}
+
+export function isDeletableKind(kind: string): boolean {
+  return DELETABLE_KINDS[kind] === true;
+}

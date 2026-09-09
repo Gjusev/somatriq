@@ -2,6 +2,7 @@
 
 import TodayCard from "./components/today-card";
 import PlanCard from "./components/plan-card";
+import JournalCard from "./components/journal-card";
 import HeartRateCard from "./components/heart-rate-card";
 import DailyCard from "./components/daily-card";
 import CorrelationsCard from "./components/correlations-card";
@@ -61,9 +62,10 @@ export default function HomePage() {
           <header className="dashboard-section-header">
             <p className="section-index num">03</p>
             <h2 className="dashboard-section-title" id="section-interventions">Interventions</h2>
-            <p>Training load and N-of-1 experiments share one evidence loop.</p>
+            <p>Log behaviors, train, and turn associations into N-of-1 experiments.</p>
           </header>
           <div className="section-grid section-grid-balanced">
+            <JournalCard />
             <TrainingCard />
             <ExperimentsCard />
           </div>
