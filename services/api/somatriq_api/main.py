@@ -62,6 +62,7 @@ async def ready() -> dict[str, str]:
 # connector registry, full data export (JSON/CSV + raw batch registry).
 from somatriq_api import (  # noqa: E402
     admin,
+    annotations,
     auth,
     coach,
     correlations,
@@ -97,6 +98,7 @@ app.include_router(plan.router)
 app.include_router(journal.router)
 app.include_router(preferences.router)
 app.include_router(explore.router)
+app.include_router(annotations.router)
 app.include_router(notifications.router)
 app.include_router(correlations.router)
 app.include_router(coach.router)
