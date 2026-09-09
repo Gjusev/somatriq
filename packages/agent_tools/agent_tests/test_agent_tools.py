@@ -231,13 +231,14 @@ async def _seed_full_today(db: AsyncSession) -> None:
 # ── registry ─────────────────────────────────────────────────────────────
 
 
-def test_registry_lists_the_five_coach_tools() -> None:
+def test_registry_lists_the_six_coach_tools() -> None:
     assert set(TOOLS) == {
         "get_today",
         "get_baselines",
         "get_trends",
         "get_journal",
         "get_data_quality",
+        "get_training",
     }
     for name, spec in TOOLS.items():
         assert spec.name == name
