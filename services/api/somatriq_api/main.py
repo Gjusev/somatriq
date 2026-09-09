@@ -70,6 +70,7 @@ from somatriq_api import (  # noqa: E402
     experiments,
     explore,
     export,
+    health_monitor,
     imports,
     ingest,
     journal,
@@ -102,6 +103,7 @@ app.include_router(annotations.router)
 app.include_router(notifications.router)
 app.include_router(correlations.router)
 app.include_router(coach.router)
+app.include_router(health_monitor.router)
 app.include_router(experiments.router)
 app.include_router(training.router)
 app.include_router(imports.imports_router)
