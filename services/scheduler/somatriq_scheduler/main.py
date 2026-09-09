@@ -22,7 +22,7 @@ from zoneinfo import ZoneInfo
 from somatriq_db.engine import get_session_factory
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from .jobs import morning_tick
+from .jobs import journal_reminder_tick, morning_tick
 from .schedule import parse_brief_time
 
 PORT = int(os.environ.get("SCHEDULER_HEALTH_PORT", "8201"))
@@ -74,8 +74,9 @@ async def scheduler_loop(
                     now=now(),
                     ntfy_topic=ntfy_topic,
                 )
+                enqueued += await journal_reminder_tick(session, tz=tz, now=now())
             if enqueued:
-                log.info("morning tick enqueued %d outbox row(s)", enqueued)
+                log.info("scheduler pass enqueued %d outbox row(s)", enqueued)
         except Exception:  # noqa: BLE001 - a failed pass must never kill the clock
             log.exception("scheduler pass failed")
         await asyncio.sleep(poll_seconds)

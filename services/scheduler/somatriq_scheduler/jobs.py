@@ -17,6 +17,7 @@ Rules (grill decision on partial data):
   — the brief itself says "no data yet", which is that case's marker.
 """
 
+import contextlib
 import json
 import uuid
 from datetime import date, datetime, time, timedelta
@@ -166,3 +167,53 @@ async def morning_tick(
         await session.commit()
 
     return enqueued
+
+
+_REMINDER_PREF_SQL = (
+    "SELECT value FROM identity.user_preferences WHERE key = 'journal_reminder_time'"
+)
+
+_REMINDER_TEXT = (
+    "Evening check-in: log today's behaviors — caffeine, alcohol, "
+    "medication, stress, meal, travel — so tomorrow's insights have data."
+)
+
+
+async def journal_reminder_tick(session: AsyncSession, *, tz: ZoneInfo, now: datetime) -> int:
+    """Opt-in evening journal reminder (Block 2): fires once per local day
+    when the local time has passed the user's ``journal_reminder_time``
+    User Preference (ADR 0019 store). No stored preference -> no reminder;
+    a malformed one degrades to silence, never to an error."""
+    raw = (await session.execute(text(_REMINDER_PREF_SQL))).scalar_one_or_none()
+    if raw is None:
+        return 0
+    value: object = raw
+    if isinstance(value, (bytes, bytearray)):
+        value = value.decode()
+    if isinstance(value, str):
+        with contextlib.suppress(json.JSONDecodeError):
+            value = json.loads(value)
+    try:
+        reminder_at = time.fromisoformat(str(value))
+    except ValueError:
+        return 0
+
+    local_now = now.astimezone(tz)
+    if local_now.time() < reminder_at:
+        return 0
+
+    channels = await enabled_channels(session)
+    if not channels:
+        return 0
+    local_day = local_now.date()
+    if await _already_enqueued_today(session, "journal_reminder", local_day):
+        return 0
+    for channel in channels:
+        await enqueue(
+            session,
+            channel["id"],
+            "journal_reminder",
+            {"text": _REMINDER_TEXT, "category": "routine", "date": local_day.isoformat()},
+        )
+    await session.commit()
+    return len(channels)
