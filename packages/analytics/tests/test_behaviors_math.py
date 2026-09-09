@@ -14,6 +14,7 @@ Frozen semantics under test:
 """
 
 from datetime import date, timedelta
+from typing import Any
 
 import pytest
 from somatriq_analytics.behaviors import behavior_insights_v1, bh_qvalues
@@ -33,7 +34,7 @@ def _dataset(
     exposed_hrv: list[float],
     unexposed_hrv: list[float],
     extra_exposure_days: list[date] | None = None,
-) -> dict[str, object]:
+) -> dict[str, Any]:
     """Active days = exposed + unexposed days (all journaled by
     construction); HRV next-day values per group; strain confounder flat."""
     exposed_days = _days(len(exposed_hrv))
@@ -55,7 +56,7 @@ def _dataset(
 
 def test_clear_effect_is_detected_with_lag_one() -> None:
     data = _dataset(exposed_hrv=[80.0] * 8, unexposed_hrv=[60.0] * 8)
-    rows = behavior_insights_v1(**data)  # type: ignore[arg-type]
+    rows = behavior_insights_v1(**data)
     row = next(r for r in rows if r.behavior == "caffeine" and r.outcome == "avg_hrv")
     assert row.status == "ok"
     assert row.n_exposed == 8
@@ -69,7 +70,7 @@ def test_clear_effect_is_detected_with_lag_one() -> None:
 
 def test_below_gate_is_keep_logging_never_a_number() -> None:
     data = _dataset(exposed_hrv=[80.0] * 3, unexposed_hrv=[60.0] * 8)
-    rows = behavior_insights_v1(**data)  # type: ignore[arg-type]
+    rows = behavior_insights_v1(**data)
     row = next(r for r in rows if r.behavior == "caffeine" and r.outcome == "avg_hrv")
     assert row.status == "keep_logging"
     assert row.p_value is None
@@ -83,8 +84,8 @@ def test_silent_days_join_no_group() -> None:
     data = _dataset(exposed_hrv=[80.0] * 8, unexposed_hrv=[60.0] * 8)
     # One extra outcome-only day: journaled nowhere.
     silent = DAY0 + timedelta(days=50)
-    data["outcomes"]["avg_hrv"][silent + timedelta(days=1)] = 999.0  # type: ignore[index]
-    rows = behavior_insights_v1(**data)  # type: ignore[arg-type]
+    data["outcomes"]["avg_hrv"][silent + timedelta(days=1)] = 999.0
+    rows = behavior_insights_v1(**data)
     row = next(r for r in rows if r.behavior == "caffeine" and r.outcome == "avg_hrv")
     assert row.n_unexposed == 8  # the silent day did not join
 
@@ -92,25 +93,25 @@ def test_silent_days_join_no_group() -> None:
 def test_exposure_pairs_only_with_next_day() -> None:
     data = _dataset(exposed_hrv=[80.0] * 8, unexposed_hrv=[60.0] * 8)
     # Same-day value differs wildly — it must never enter the test.
-    same_day = dict(data["outcomes"]["avg_hrv"])  # type: ignore[arg-type]
-    for exposed_day in data["exposures"]["caffeine"]:  # type: ignore[index]
+    same_day = dict(data["outcomes"]["avg_hrv"])
+    for exposed_day in data["exposures"]["caffeine"]:
         same_day[exposed_day] = 1.0
-    data["outcomes"]["avg_hrv"] = same_day  # type: ignore[index]
-    rows = behavior_insights_v1(**data)  # type: ignore[arg-type]
+    data["outcomes"]["avg_hrv"] = same_day
+    rows = behavior_insights_v1(**data)
     row = next(r for r in rows if r.behavior == "caffeine" and r.outcome == "avg_hrv")
     assert row.median_exposed == pytest.approx(80.0)  # next-day values, not same-day
 
 
 def test_confounders_reported_per_group() -> None:
     data = _dataset(exposed_hrv=[80.0] * 8, unexposed_hrv=[60.0] * 8)
-    strain: dict[date, float] = data["strain_by_day"]  # type: ignore[assignment]
-    exposed_days = sorted(data["exposures"]["caffeine"])  # type: ignore[index]
+    strain: dict[date, float] = data["strain_by_day"]
+    exposed_days = sorted(data["exposures"]["caffeine"])
     for d in exposed_days:
         strain[d] = 20.0  # exposed days carried higher strain
     data["strain_by_day"] = strain
     # Overlap: alcohol on two of the caffeine days.
-    data["exposures"]["alcohol"] = set(exposed_days[:2])  # type: ignore[index]
-    rows = behavior_insights_v1(**data)  # type: ignore[arg-type]
+    data["exposures"]["alcohol"] = set(exposed_days[:2])
+    rows = behavior_insights_v1(**data)
     row = next(r for r in rows if r.behavior == "caffeine" and r.outcome == "avg_hrv")
 
     assert row.confounders.strain_median_exposed == pytest.approx(20.0)
@@ -120,7 +121,7 @@ def test_confounders_reported_per_group() -> None:
 
 def test_row_family_is_frozen_and_ordered() -> None:
     data = _dataset(exposed_hrv=[80.0] * 8, unexposed_hrv=[60.0] * 8)
-    rows = behavior_insights_v1(**data)  # type: ignore[arg-type]
+    rows = behavior_insights_v1(**data)
     pairs = [(r.behavior, r.outcome) for r in rows]
     expected = [
         (behavior, outcome) for behavior in BEHAVIOR_EXPOSURES for outcome in BEHAVIOR_OUTCOMES
@@ -131,8 +132,8 @@ def test_row_family_is_frozen_and_ordered() -> None:
 def test_missing_outcome_metric_skips_to_keep_logging() -> None:
     """An outcome with no data at all cannot produce numbers."""
     data = _dataset(exposed_hrv=[80.0] * 8, unexposed_hrv=[60.0] * 8)
-    data["outcomes"]["recovery"] = {}  # type: ignore[index]
-    rows = behavior_insights_v1(**data)  # type: ignore[arg-type]
+    data["outcomes"]["recovery"] = {}
+    rows = behavior_insights_v1(**data)
     row = next(r for r in rows if r.behavior == "caffeine" and r.outcome == "recovery")
     assert row.status == "keep_logging"
 

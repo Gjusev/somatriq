@@ -9,6 +9,7 @@ Frozen semantics under test:
   required — without it minutes is null and the reason is explicit.
 """
 
+from collections.abc import Sequence
 from datetime import date, timedelta
 
 import pytest
@@ -26,7 +27,7 @@ from somatriq_contracts.plan import (
 DAY = date(2026, 9, 9)
 
 
-def _window(actuals: list[float | None]) -> list[tuple[date, float | None]]:
+def _window(actuals: Sequence[float | None]) -> list[tuple[date, float | None]]:
     """7 named days ending at DAY, newest last."""
     return [(DAY - timedelta(days=7 - i), value) for i, value in enumerate(actuals)]
 
@@ -170,4 +171,5 @@ def test_sleep_need_monotonic_in_debt() -> None:
     high = sleep_need_v1(
         DAY, baseline_sleep_min=480.0, sleep_debt_min=240.0, recent_load=None, recovery=None
     )
+    assert low.minutes is not None and high.minutes is not None
     assert high.minutes > low.minutes

@@ -6,8 +6,9 @@ activity (they must join no group), and flat strain. Asserts the frozen
 family shape, the honest gate, and the association-only language.
 """
 
+import uuid
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -55,9 +56,9 @@ async def _seed_effect(db: AsyncSession, tz: ZoneInfo) -> None:
         (await db.execute(text("SELECT id FROM identity.devices LIMIT 1"))).scalar_one(),
     )
     now = datetime.now(UTC)
-    exposed: list = []
-    unexposed: list = []
-    silent: list = []
+    exposed: list[date] = []
+    unexposed: list[date] = []
+    silent: list[date] = []
     for offset in range(2, 24):
         day = (now - timedelta(days=offset)).astimezone(tz).date()
         if offset % 2 == 0 and len(exposed) < 10:
@@ -67,8 +68,8 @@ async def _seed_effect(db: AsyncSession, tz: ZoneInfo) -> None:
         elif len(silent) < 2:
             silent.append(day)  # offsets 22,23: outcomes only, no journal
 
-    events: list[tuple[object, str, object]] = []
-    dailies: list[tuple[object, object, str, float]] = []
+    events: list[tuple[datetime, str, uuid.UUID]] = []
+    dailies: list[tuple[uuid.UUID, uuid.UUID, date, str, float]] = []
     for day in exposed:
         ts = datetime.combine(day, datetime.min.time(), tzinfo=tz) + timedelta(hours=10)
         events.append((ts.astimezone(UTC), "caffeine", user_id))
@@ -82,13 +83,13 @@ async def _seed_effect(db: AsyncSession, tz: ZoneInfo) -> None:
     for day in exposed + unexposed:
         dailies.append((user_id, device_id, day, "strain", 10.0))
 
-    for ts, kind, owner in events:
+    for event_ts, kind, owner in events:
         await db.execute(
             text(
                 "INSERT INTO health.journal_events (user_id, source, kind, ts) "
                 "VALUES (:user_id, 'web', :kind, :ts)"
             ),
-            {"user_id": owner, "kind": kind, "ts": ts},
+            {"user_id": owner, "kind": kind, "ts": event_ts},
         )
     for owner, device, day, metric, value in dailies:
         await db.execute(

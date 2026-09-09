@@ -11,6 +11,7 @@ import json
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime, time, timedelta
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -74,7 +75,7 @@ async def _seed_week(db: AsyncSession, today_minutes: float = 420.0) -> None:
     await db.commit()
 
 
-async def _derived_rows(db: AsyncSession) -> list[tuple[str, dict]]:
+async def _derived_rows(db: AsyncSession) -> list[tuple[str, dict[str, Any]]]:
     result = await db.execute(
         text(
             "SELECT algorithm_version, payload FROM derived.daily_derived "

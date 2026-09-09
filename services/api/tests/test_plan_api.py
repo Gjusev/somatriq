@@ -113,7 +113,7 @@ def test_plan_today_requires_auth() -> None:
     from somatriq_api.errors import ApiError
     from somatriq_api.main import api_error_handler
 
-    bare.add_exception_handler(ApiError, api_error_handler)
+    bare.add_exception_handler(ApiError, api_error_handler)  # type: ignore[arg-type]
     bare.include_router(plan_router)
     with TC(bare) as client:
         assert client.get(PLAN_PATH).status_code == 401

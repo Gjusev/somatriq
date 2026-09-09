@@ -6,6 +6,7 @@ without a well-formed preference.
 
 import json
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from somatriq_db.testing import requires_db
@@ -44,7 +45,7 @@ async def _set_reminder(db: AsyncSession, value: str) -> None:
     await db.commit()
 
 
-async def _reminder_rows(db: AsyncSession) -> list[tuple[str, dict]]:
+async def _reminder_rows(db: AsyncSession) -> list[tuple[str, dict[str, Any]]]:
     result = await db.execute(
         text("SELECT kind, payload FROM notifications.outbox WHERE kind = 'journal_reminder'")
     )

@@ -7,6 +7,7 @@ decision: emit with marker beats skipping).
 from datetime import date
 
 from somatriq_analytics.brief import build_morning_brief
+from somatriq_analytics.plan_data import PlanData
 from somatriq_analytics.recovery import baseline, recovery_v1
 from somatriq_analytics.today_data import JournalToday, TodayData
 from somatriq_contracts.recovery import HrvSummary, SleepSummary
@@ -248,7 +249,7 @@ def test_baseline_helper_feeds_brief_without_invention() -> None:
 STRAIN_20 = [float(v) for v in range(10, 210, 10)]
 
 
-def _plan_data(*, degraded: bool = False):
+def _plan_data(*, degraded: bool = False) -> "PlanData":
     from datetime import time as time_type
 
     from somatriq_analytics.day_plan import day_plan_v1

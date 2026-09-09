@@ -17,6 +17,7 @@ from somatriq_api.health_report import (
 from somatriq_api.main import app
 from somatriq_contracts.health_monitor import (
     HEALTH_MONITOR_DISCLAIMER,
+    HealthMonitorResponse,
     VitalSummary,
 )
 from somatriq_db.engine import get_engine
@@ -42,9 +43,7 @@ async def api(db: AsyncSession) -> AsyncIterator[httpx.AsyncClient]:
         yield client
 
 
-def _response() -> object:
-    from somatriq_contracts.health_monitor import HealthMonitorResponse
-
+def _response() -> HealthMonitorResponse:
     return HealthMonitorResponse(
         days=30,
         timezone="UTC",

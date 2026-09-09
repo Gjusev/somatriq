@@ -345,6 +345,7 @@ async def _seed_training_session(db: AsyncSession) -> None:
 
     owner, _ = await _ids(db)
     parsed = parse_training_line("Bench press 80x8 85x6 90x4")
+    assert parsed is not None, "deterministic parser never rejects this line"
     session_id = (
         await db.execute(
             text(
