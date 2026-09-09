@@ -59,14 +59,10 @@ class JournalEventCreate(BaseModel):
         if self.structured is None:
             return self
         if self.kind not in QUANTITY_KINDS:
-            raise ValueError(
-                f"kind {self.kind!r} is binary in v1 — no structured payload"
-            )
+            raise ValueError(f"kind {self.kind!r} is binary in v1 — no structured payload")
         keys = set(self.structured)
         if not keys <= {"quantity", "estimated"}:
-            raise ValueError(
-                "structured payload accepts only 'quantity' and 'estimated'"
-            )
+            raise ValueError("structured payload accepts only 'quantity' and 'estimated'")
         quantity = self.structured.get("quantity")
         if quantity is not None:
             if not isinstance(quantity, (int, float)) or isinstance(quantity, bool):
@@ -90,3 +86,49 @@ class JournalEventOut(BaseModel):
 class JournalDayResponse(BaseModel):
     date: str
     events: list[JournalEventOut] = Field(default_factory=list)
+
+
+# ── somatriq_behavior_insight_v1 (frozen — changes bump the version) ──────
+
+BEHAVIOR_INSIGHT_ALGORITHM = "somatriq_behavior_insight_v1"
+
+# The fixed test family (grill P9): exposure day d -> outcome day d+1.
+BEHAVIOR_OUTCOMES: tuple[str, ...] = (
+    "avg_hrv",
+    "recovery",
+    "total_sleep_min",
+    "resting_hr",
+)
+BEHAVIOR_EXPOSURES: tuple[str, ...] = (*BEHAVIOR_KINDS, "caffeine_after_14")
+BEHAVIOR_LAG_DAYS = 1
+BEHAVIOR_MIN_GROUP_DAYS = 7
+BEHAVIOR_INSIGHT_DEFAULT_DAYS = 90
+
+# Windowed exposure variant (frozen local hour): caffeine at/after 14:00.
+CAFFEINE_AFTER_HOUR = 14
+
+
+class BehaviorConfounders(BaseModel):
+    """Descriptive group differences, reported beside every effect — never
+    adjusted away, never hidden (spec §158)."""
+
+    strain_median_exposed: float | None = None
+    strain_median_unexposed: float | None = None
+    overlap_days: dict[str, int] = Field(default_factory=dict)
+
+
+class BehaviorInsightRow(BaseModel):
+    behavior: str
+    outcome: str
+    status: Literal["ok", "keep_logging"]
+    n_exposed: int = 0
+    n_unexposed: int = 0
+    median_exposed: float | None = None
+    median_unexposed: float | None = None
+    median_difference: float | None = None
+    p_value: float | None = None
+    q_value: float | None = None
+    confounders: BehaviorConfounders = Field(default_factory=BehaviorConfounders)
+    algorithm_version: str = BEHAVIOR_INSIGHT_ALGORITHM
+    method: str
+    note: str | None = None
