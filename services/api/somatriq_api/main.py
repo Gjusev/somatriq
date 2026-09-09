@@ -70,6 +70,7 @@ from somatriq_api import (  # noqa: E402
     export,
     imports,
     ingest,
+    journal,
     metrics,
     notifications,
     observations,
@@ -92,6 +93,7 @@ app.include_router(observations.rr_router)
 app.include_router(metrics.router)
 app.include_router(today.router)
 app.include_router(plan.router)
+app.include_router(journal.router)
 app.include_router(preferences.router)
 app.include_router(notifications.router)
 app.include_router(correlations.router)

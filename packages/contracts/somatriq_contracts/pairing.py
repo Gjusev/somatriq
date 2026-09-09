@@ -32,7 +32,7 @@ PAIRING_TTL_MINUTES = 10
 
 # data.read (M-dashboard): the device token may read the owner's data via the
 # read endpoints — never admin, pairing or other-user surfaces (spec §44).
-DEVICE_SCOPES = ("ingest.write", "device.read", "sync.read", "data.read")
+DEVICE_SCOPES = ("ingest.write", "device.read", "sync.read", "data.read", "journal.write")
 
 # Device token wire format: sqt_dev_ + 43 base64url chars (32 random bytes).
 DEVICE_TOKEN_PREFIX = "sqt_dev_"

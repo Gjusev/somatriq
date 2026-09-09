@@ -44,6 +44,7 @@ from somatriq_api.settings import get_settings
 
 INGEST_WRITE_SCOPE = "ingest.write"
 DATA_READ_SCOPE = "data.read"
+JOURNAL_WRITE_SCOPE = "journal.write"
 
 
 def _bearer_token(authorization: str | None) -> str | None:
@@ -168,6 +169,31 @@ async def require_read_principal(
 
     # Byte-identical account-JWT path — including its flat 401s.
     return await require_account_jwt(authorization)
+
+
+async def require_journal_write_principal(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> tuple[UUID, str]:
+    """Journal-write guard (Block 2, grill P10): the account JWT (web
+    provenance) OR a device token carrying journal.write (mobile
+    provenance — the collector never holds the account JWT). Returns
+    (user_id, source) so the event records who logged it, by which edge."""
+    bearer = _bearer_token(authorization)
+
+    if bearer is not None and bearer.startswith(DEVICE_TOKEN_PREFIX):
+        token_row = await _verified_device_token(session, bearer, JOURNAL_WRITE_SCOPE)
+        device = (
+            await session.execute(select(Device).where(Device.id == token_row.device_id))
+        ).scalar_one()
+        await _touch_device_token(session, token_row)
+        return device.user_id, "mobile"
+
+    user_id = await require_account_jwt(authorization)
+    return user_id, "web"
+
+
+JournalWriteDep = Annotated[tuple[UUID, str], Depends(require_journal_write_principal)]
 
 
 ReadUserDep = Annotated[UUID, Depends(require_read_principal)]
