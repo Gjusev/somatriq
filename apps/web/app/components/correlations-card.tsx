@@ -52,7 +52,7 @@ export default function CorrelationsCard() {
   return (
     <section className="card" aria-label="Correlations">
       <header className="card-header">
-        <h2>Correlations</h2>
+        <h3>Correlations</h3>
         <div className="range-group" role="group" aria-label="Day range">
           {RANGE_OPTIONS.map((option) => (
             <button

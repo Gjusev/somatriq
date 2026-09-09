@@ -227,7 +227,7 @@ export default function DailyCard() {
   return (
     <section className="card" aria-label="Daily heart summary">
       <header className="card-header">
-        <h2>Resting heart rate — daily</h2>
+        <h3>Resting heart rate — daily</h3>
         <div className="range-group" role="group" aria-label="Day range">
           {RANGE_OPTIONS.map((option) => (
             <button

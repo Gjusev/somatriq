@@ -196,7 +196,7 @@ export default function DataCard() {
   return (
     <section className="card" id="data" aria-label="Data import and export">
       <header className="card-header">
-        <h2>Data</h2>
+        <h3>Data</h3>
       </header>
 
       {!ready && (

@@ -252,7 +252,7 @@ export default function HeartRateCard() {
   return (
     <section className="card" aria-label="Heart rate, last 24 hours">
       <header className="card-header">
-        <h2>Heart rate — last 24h</h2>
+        <h3>Heart rate — last 24h</h3>
         {data !== undefined && points.length > 0 && (
           <p className="card-meta">
             {data.coverage !== null && (

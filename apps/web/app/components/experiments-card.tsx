@@ -265,7 +265,7 @@ export default function ExperimentsCard() {
   return (
     <section className="card" id="experiments" aria-label="Experiments">
       <header className="card-header">
-        <h2>Experiments</h2>
+        <h3>Experiments</h3>
       </header>
 
       {!ready && (

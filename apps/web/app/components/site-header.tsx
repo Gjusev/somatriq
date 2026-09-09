@@ -80,7 +80,8 @@ export default function SiteHeader() {
     <header className="site-header">
       <div className="site-header-left">
         <Link href="/" className="wordmark">
-          Somatriq
+          <img className="brand-mark" src="/brand-mark.svg" alt="" aria-hidden="true" />
+          <span>Somatriq</span>
         </Link>
         <span
           className={`status-dot ${health === "ok" ? "status-dot-ok" : health === "bad" ? "status-dot-bad" : ""}`}
@@ -89,16 +90,23 @@ export default function SiteHeader() {
         />
       </div>
       <nav className="site-nav" aria-label="Primary">
-        <ThemePicker />
-        <Link href="/#devices">Devices</Link>
-        <Link href="/pairing/">Pairing</Link>
-        {signedIn ? (
-          <button type="button" className="btn btn-small" onClick={signOut}>
-            Sign out
-          </button>
-        ) : (
-          <Link href="/login/">Sign in</Link>
-        )}
+        <div className="site-section-links">
+          <Link href="/#today">Today</Link>
+          <Link href="/#patterns">Patterns</Link>
+          <Link href="/#interventions">Interventions</Link>
+          <Link href="/#ownership">Data</Link>
+        </div>
+        <div className="site-actions">
+          <ThemePicker />
+          <Link href="/pairing/">Pairing</Link>
+          {signedIn ? (
+            <button type="button" className="btn btn-small" onClick={signOut}>
+              Sign out
+            </button>
+          ) : (
+            <Link href="/login/">Sign in</Link>
+          )}
+        </div>
       </nav>
     </header>
   );

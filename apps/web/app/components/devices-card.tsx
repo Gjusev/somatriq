@@ -285,7 +285,7 @@ export default function DevicesCard() {
   return (
     <section className="card" id="devices" aria-label="Paired devices">
       <header className="card-header">
-        <h2>Devices</h2>
+        <h3>Devices</h3>
       </header>
 
       {!ready && <div className="skeleton" role="status" aria-label="Loading devices">

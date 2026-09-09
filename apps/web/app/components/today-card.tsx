@@ -189,7 +189,7 @@ export default function TodayCard() {
   return (
     <section className="card" aria-label="Today — recovery and nightly summary">
       <header className="card-header">
-        <h2>Today</h2>
+        <h3>Today</h3>
         {data !== undefined && (
           <p className="card-meta">
             {formatDayLabel(data.date)} · {data.timezone}

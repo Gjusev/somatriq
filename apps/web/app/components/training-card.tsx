@@ -257,7 +257,7 @@ export default function TrainingCard() {
   return (
     <section className="card" id="training" aria-label="Strength training">
       <header className="card-header">
-        <h2>Strength training</h2>
+        <h3>Strength training</h3>
         {sessionsQuery.data !== undefined && (
           <p className="card-meta num">
             last {sessionsQuery.data.days} days ·{" "}

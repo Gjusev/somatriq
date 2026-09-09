@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Somatriq">
+  <rect width="512" height="512" fill="#172421"/>
+  <g fill="#63C7B5" opacity="0.34">
+    <circle cx="324" cy="164" r="8"/><circle cx="364" cy="164" r="8"/><circle cx="404" cy="164" r="8"/>
+    <circle cx="324" cy="204" r="8"/><circle cx="364" cy="204" r="8"/><circle cx="404" cy="204" r="8"/>
+    <circle cx="324" cy="244" r="8"/><circle cx="364" cy="244" r="8"/><circle cx="404" cy="244" r="8"/>
+  </g>
+  <path d="M342 151C315 128 278 118 241 126C199 135 171 161 171 192C171 225 198 240 254 252C314 265 341 283 341 319C341 356 308 383 258 387C215 390 179 376 153 350" fill="none" stroke="#63C7B5" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="342" cy="151" r="12" fill="#F3F1EB"/><circle cx="153" cy="350" r="12" fill="#F3F1EB"/>
+</svg>

@@ -16,8 +16,16 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Somatriq",
-  description: "Personal biometric intelligence. Your body. Your data. Your intelligence.",
+  title: {
+    default: "Somatriq",
+    template: "%s · Somatriq",
+  },
+  description: "Private, self-hosted biometric intelligence built around a NOOP-based mobile collector.",
+  applicationName: "Somatriq",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 /**

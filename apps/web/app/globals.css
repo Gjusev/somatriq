@@ -1,7 +1,6 @@
 /*
- * M0 placeholder styles. Real design tokens (typography, spacing, color,
- * semantic health states, chart palette) are a versioned deliverable in
- * docs/design/ before M6 (spec §175, ADR 0014). Off-black on off-white only.
+ * Somatriq design tokens v1. The cross-platform semantic contract is
+ * versioned in docs/design/tokens.md (spec §175, ADR 0014).
  */
 
 :root {
@@ -48,6 +47,12 @@
   --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body {
   margin: 0;
@@ -62,7 +67,7 @@ body {
 }
 
 .shell {
-  max-width: 72rem;
+  max-width: 82rem;
   margin: 0 auto;
   padding: 3rem 1.5rem 4rem;
 }
@@ -80,10 +85,11 @@ body {
 }
 
 h1 {
-  font-size: 2rem;
+  font-size: clamp(2.25rem, 5vw, 3.75rem);
   font-weight: 600;
-  letter-spacing: -0.03em;
-  margin: 0.25rem 0 2rem;
+  line-height: 1;
+  letter-spacing: -0.055em;
+  margin: 0.375rem 0 0;
 }
 
 h2 {
@@ -96,14 +102,109 @@ h2 {
 
 .dashboard {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0 4rem;
-  align-items: start;
+  gap: 0;
 }
 
-@media (min-width: 64rem) {
-  .dashboard {
-    grid-template-columns: minmax(0, 1fr) 21rem;
+.dashboard-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(16rem, 0.75fr);
+  gap: 3rem;
+  align-items: end;
+  padding: 1.5rem 0 4.5rem;
+}
+
+.dashboard-intro-copy {
+  max-width: 38ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.dashboard-section {
+  display: grid;
+  gap: 2rem;
+  padding: 2rem 0 4.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 24%, transparent);
+  scroll-margin-top: 1.5rem;
+}
+
+.dashboard-section-header {
+  max-width: 34rem;
+}
+
+.section-index {
+  margin: 0 0 1rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+}
+
+.dashboard-section-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-transform: none;
+}
+
+.dashboard-section-header > p:last-child {
+  margin: 0.625rem 0 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.section-grid {
+  display: grid;
+  gap: 3rem;
+  min-width: 0;
+}
+
+.section-grid > .card {
+  min-width: 0;
+  margin-top: 0;
+}
+
+@media (min-width: 56rem) {
+  .section-grid-primary {
+    grid-template-columns: minmax(18rem, 0.8fr) minmax(0, 1.2fr);
+  }
+
+  .section-grid-balanced {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .section-grid-ownership {
+    grid-template-columns: minmax(17rem, 0.72fr) minmax(0, 1.28fr);
+  }
+}
+
+@media (min-width: 75rem) {
+  .dashboard-section {
+    grid-template-columns: 11rem minmax(0, 1fr);
+    gap: 3rem;
+  }
+}
+
+@media (max-width: 48rem) {
+  .shell {
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  .dashboard-intro {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    padding: 2rem 0 3.5rem;
+  }
+
+  .site-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .dashboard-section {
+    padding-bottom: 3.5rem;
   }
 }
 
@@ -145,8 +246,13 @@ code {
   margin-bottom: 0.75rem;
 }
 
-.card-header h2 {
+.card-header h3 {
   margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .card-meta {
@@ -259,11 +365,21 @@ code {
 }
 
 .wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
   font-size: 0.9375rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.025em;
   color: var(--ink);
   text-decoration: none;
+}
+
+.brand-mark {
+  display: block;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
 }
 
 .site-nav {
@@ -273,6 +389,13 @@ code {
   font-size: 0.875rem;
 }
 
+.site-section-links,
+.site-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
 .site-nav a {
   color: var(--muted);
   text-decoration: none;
@@ -280,6 +403,29 @@ code {
 
 .site-nav a:hover {
   color: var(--ink);
+}
+
+@media (max-width: 48rem) {
+  .site-nav {
+    display: grid;
+    width: 100%;
+    gap: 0.875rem;
+  }
+
+  .site-section-links {
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    scrollbar-width: none;
+  }
+
+  .site-section-links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .site-actions {
+    order: -1;
+    justify-content: space-between;
+  }
 }
 
 .btn-small {
@@ -333,7 +479,7 @@ code {
 
 /* Section signature: a small accent dash before every card heading — the one
  * decorative motif the charter's "calm instrumentation" allows. */
-.card-header h2::before,
+.card-header h3::before,
 .exp-name::before {
   content: "";
   display: inline-block;
@@ -404,6 +550,7 @@ code {
 .field {
   display: grid;
   gap: 0.375rem;
+  min-width: 0;
 }
 
 .field label {
@@ -414,6 +561,8 @@ code {
 }
 
 .field input {
+  width: 100%;
+  min-width: 0;
   font: inherit;
   font-size: 0.9375rem;
   color: var(--ink);
@@ -430,6 +579,8 @@ code {
 /* M13 data card: pasted CSV contents — the .field input rules, token for
  * token, plus vertical resizing (the only addition a textarea needs). */
 .field textarea {
+  width: 100%;
+  min-width: 0;
   font: inherit;
   font-size: 0.9375rem;
   color: var(--ink);

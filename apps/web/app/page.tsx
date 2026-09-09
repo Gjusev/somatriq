@@ -11,45 +11,73 @@ import DataCard from "./components/data-card";
 import SiteHeader from "./components/site-header";
 
 /**
- * The home feed. The Today card (M6) anchors the day: recovery, last night's
- * summaries and freshness, stated honestly — no invented numbers (spec §76).
- * Heart-rate context follows; correlations (M10) sit below the daily summary
- * as co-movement, never causation; experiments (M11) are the one surface
- * allowed to speak causally — a baseline, one change, an honest read.
- * Strength training (M12) adds the muscular-load layer — sessions, tonnage,
- * and the §80 training-vs-next-day-recovery response, correlational like
- * the matrix. The Data card (M13) closes the loop on ownership — CSV import
- * preview-first (§129) and full exports (§130), login-gated like devices.
- * Every data card is login-gated (spec §122): health reads answer the
- * owner's session only. The header carries the API-health dot and the theme
- * picker (design pass v2); the visible masthead is gone — the dashboard
- * starts at Today.
+ * Group the home feed by user intent rather than implementation milestone:
+ * current state, longitudinal patterns, deliberate interventions, then
+ * sources and ownership. Each card retains its own loading/empty/error cycle.
  */
 export default function HomePage() {
   return (
     <main className="shell">
       <SiteHeader />
-      <h1 className="sr-only">Somatriq — personal biometric intelligence</h1>
-
-      {/*
-       * Asymmetric dashboard (design pass 2026-09-05): the main column
-       * carries the day and the science (Today, heart rate, daily summary,
-       * correlations, training response); the rail carries management
-       * (devices, experiments, data ownership). Single column under 64rem.
-       */}
-      <div className="dashboard">
-        <div className="dashboard-main">
-          <TodayCard />
-          <HeartRateCard />
-          <DailyCard />
-          <CorrelationsCard />
-          <TrainingCard />
+      <header className="dashboard-intro">
+        <div>
+          <p className="eyebrow">Personal evidence system</p>
+          <h1>Your data, in context.</h1>
         </div>
-        <aside className="dashboard-rail">
-          <DevicesCard />
-          <ExperimentsCard />
-          <DataCard />
-        </aside>
+        <p className="dashboard-intro-copy">
+          Today first. Longer patterns and deliberate interventions follow,
+          with coverage, provenance and uncertainty kept visible.
+        </p>
+      </header>
+
+      <div className="dashboard">
+        <section className="dashboard-section" id="today" aria-labelledby="section-today">
+          <header className="dashboard-section-header">
+            <p className="section-index num">01</p>
+            <h2 className="dashboard-section-title" id="section-today">Daily state</h2>
+            <p>Recovery and the sensor stream behind it, presented together.</p>
+          </header>
+          <div className="section-grid section-grid-primary">
+            <TodayCard />
+            <HeartRateCard />
+          </div>
+        </section>
+
+        <section className="dashboard-section" id="patterns" aria-labelledby="section-patterns">
+          <header className="dashboard-section-header">
+            <p className="section-index num">02</p>
+            <h2 className="dashboard-section-title" id="section-patterns">Patterns over time</h2>
+            <p>Daily baselines and associations, without causal shortcuts.</p>
+          </header>
+          <div className="section-grid section-grid-balanced">
+            <DailyCard />
+            <CorrelationsCard />
+          </div>
+        </section>
+
+        <section className="dashboard-section" id="interventions" aria-labelledby="section-interventions">
+          <header className="dashboard-section-header">
+            <p className="section-index num">03</p>
+            <h2 className="dashboard-section-title" id="section-interventions">Interventions</h2>
+            <p>Training load and N-of-1 experiments share one evidence loop.</p>
+          </header>
+          <div className="section-grid section-grid-balanced">
+            <TrainingCard />
+            <ExperimentsCard />
+          </div>
+        </section>
+
+        <section className="dashboard-section" id="ownership" aria-labelledby="section-data">
+          <header className="dashboard-section-header">
+            <p className="section-index num">04</p>
+            <h2 className="dashboard-section-title" id="section-data">Sources &amp; ownership</h2>
+            <p>Pair collectors, inspect access and move your data freely.</p>
+          </header>
+          <div className="section-grid section-grid-ownership">
+            <DevicesCard />
+            <DataCard />
+          </div>
+        </section>
       </div>
     </main>
   );
