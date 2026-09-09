@@ -132,3 +132,10 @@ class BehaviorInsightRow(BaseModel):
     algorithm_version: str = BEHAVIOR_INSIGHT_ALGORITHM
     method: str
     note: str | None = None
+
+
+class BehaviorInsightsResponse(BaseModel):
+    days: int
+    timezone: str
+    rows: list[BehaviorInsightRow] = Field(default_factory=list)
+    note: str = "associations over your logged days — never causal claims"

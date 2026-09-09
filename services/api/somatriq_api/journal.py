@@ -16,11 +16,15 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from somatriq_analytics.behavior_data import behavior_insight_inputs
+from somatriq_analytics.behaviors import behavior_insights_v1
 from somatriq_contracts.errors import ErrorCode
 from somatriq_contracts.journal import (
+    BEHAVIOR_INSIGHT_DEFAULT_DAYS,
     QUANTITY_KINDS,
     SYSTEM_KINDS,
+    BehaviorInsightsResponse,
     JournalDayResponse,
     JournalEventCreate,
     JournalEventOut,
@@ -191,3 +195,18 @@ async def delete_journal_event(
         {"id": event_id, "user_id": user_id},
     )
     await session.commit()
+
+
+@router.get("/insights", response_model=BehaviorInsightsResponse)
+async def read_behavior_insights(
+    user_id: ReadUserDep,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    days: Annotated[int, Query(ge=14, le=365)] = BEHAVIOR_INSIGHT_DEFAULT_DAYS,
+) -> BehaviorInsightsResponse:
+    """The frozen behavior-insight family (association, never causation):
+    exposure day d -> outcome day d+1, groups from actively-journaled
+    days, BH-FDR q over executed tests, confounders beside every effect."""
+    tz = ZoneInfo(get_settings().user_timezone)
+    inputs = await behavior_insight_inputs(session, tz=tz, days=days)
+    rows = behavior_insights_v1(**inputs)  # type: ignore[arg-type]
+    return BehaviorInsightsResponse(days=days, timezone=tz.key, rows=rows)
