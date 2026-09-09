@@ -49,7 +49,7 @@ function InsightRow({ row }: { row: BehaviorInsight }) {
 
   if (row.status === "keep_logging") {
     return (
-      <li className="contribution-row">
+      <li className="insight-row insight-row-quiet">
         <span className="contribution-input">{row.behavior}</span>
         <span className="contribution-detail">keep logging — {row.note ?? "not enough days yet"}</span>
       </li>
@@ -57,7 +57,7 @@ function InsightRow({ row }: { row: BehaviorInsight }) {
   }
 
   return (
-    <li className="contribution-row">
+    <li className="insight-row">
       <span className="contribution-input">
         {row.behavior} → {row.outcome}
       </span>
@@ -248,22 +248,18 @@ export default function JournalCard() {
               ) : (
                 <ul className="missing-list">
                   {okRows.map((row) => (
-                    <li key={`${row.behavior}-${row.outcome}`}>
-                      <InsightRow row={row} />
-                    </li>
+                    <InsightRow key={`${row.behavior}-${row.outcome}`} row={row} />
                   ))}
                 </ul>
               )}
               {pendingRows.length > 0 && (
-                <details>
+                <details className="insight-details">
                   <summary className="stat-line-note">
                     {pendingRows.length} behavior(s) still below the evidence gate
                   </summary>
                   <ul className="missing-list">
                     {pendingRows.map((row) => (
-                      <li key={`${row.behavior}-${row.outcome}`}>
-                        <InsightRow row={row} />
-                      </li>
+                      <InsightRow key={`${row.behavior}-${row.outcome}`} row={row} />
                     ))}
                   </ul>
                 </details>
