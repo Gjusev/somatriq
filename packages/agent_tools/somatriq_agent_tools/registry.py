@@ -15,6 +15,7 @@ from .tools import (
     get_data_quality,
     get_journal,
     get_today,
+    get_training,
     get_trends,
 )
 
@@ -65,6 +66,15 @@ _TOOLS: Final[tuple[ToolSpec, ...]] = (
         name="get_data_quality",
         description="Per-day coverage and data-quality grades from the daily feature store.",
         fn=get_data_quality,
+    ),
+    ToolSpec(
+        name="get_training",
+        description=(
+            "Strength sessions over a trailing window with their frozen §79 "
+            "summaries (exercises, sets, tonnage, hard sets) — the same math "
+            "the training API serves."
+        ),
+        fn=get_training,
     ),
 )
 

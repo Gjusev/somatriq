@@ -12,6 +12,7 @@ from .tools import (
     BASELINE_ALGORITHM,
     DEFAULT_BASELINE_DAYS,
     DEFAULT_QUALITY_DAYS,
+    DEFAULT_TRAINING_DAYS,
     DEFAULT_TREND_DAYS,
     INSUFFICIENT_BASELINE_CAVEAT,
     METRIC_SOURCES,
@@ -25,6 +26,7 @@ from .tools import (
     get_data_quality,
     get_journal,
     get_today,
+    get_training,
     get_trends,
 )
 
@@ -33,6 +35,7 @@ __all__ = [
     "COACH_READ_SCOPE",
     "DEFAULT_BASELINE_DAYS",
     "DEFAULT_QUALITY_DAYS",
+    "DEFAULT_TRAINING_DAYS",
     "DEFAULT_TREND_DAYS",
     "INSUFFICIENT_BASELINE_CAVEAT",
     "METRIC_SOURCES",
@@ -48,5 +51,6 @@ __all__ = [
     "get_data_quality",
     "get_journal",
     "get_today",
+    "get_training",
     "get_trends",
 ]

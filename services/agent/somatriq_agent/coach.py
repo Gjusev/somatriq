@@ -30,6 +30,7 @@ from zoneinfo import ZoneInfo
 from somatriq_agent_tools import (
     DEFAULT_BASELINE_DAYS,
     DEFAULT_QUALITY_DAYS,
+    DEFAULT_TRAINING_DAYS,
     DEFAULT_TREND_DAYS,
     TOOLS,
     ToolSpec,
@@ -42,8 +43,8 @@ from .settings import get_settings
 
 NO_TOOL_ANSWER: Final[str] = (
     "I have no data for that. I can answer from your deterministic health tools: "
-    "today's recovery, baselines, trends, journal and data quality — try asking "
-    "about one of those."
+    "today's recovery, baselines, trends, training, journal and data quality — "
+    "try asking about one of those."
 )
 
 DEFAULT_METRIC: Final[str] = "resting_hr"
@@ -91,6 +92,21 @@ TOOL_KEYWORDS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
             "improving",
             "declining",
             "history",
+        ),
+    ),
+    (
+        "get_training",
+        (
+            "workout",
+            "workouts",
+            "training",
+            "train",
+            "gym",
+            "lift",
+            "lifting",
+            "strength",
+            "tonnage",
+            "exercise",
         ),
     ),
     (
@@ -169,7 +185,8 @@ def select_tools(question: str) -> list[ToolCall]:
             calls.append(ToolCall(name))  # engine injects user_id (auth-scoped)
         elif name == "get_data_quality":
             calls.append(ToolCall(name, {"days": DEFAULT_QUALITY_DAYS}))
-
+        elif name == "get_training":
+            calls.append(ToolCall(name, {"days": DEFAULT_TRAINING_DAYS}))
     today_keywords = TOOL_KEYWORDS[-1][1]
     today_matches = any(keyword in lowered for keyword in today_keywords)
     explicit_today = any(keyword in lowered for keyword in TODAY_EXPLICIT_KEYWORDS)
@@ -255,7 +272,7 @@ class CoachEngine:
         for call in calls:
             spec: ToolSpec = TOOLS[call.name]
             kwargs = dict(call.args)
-            if call.name == "get_journal":
+            if call.name in ("get_journal", "get_training"):
                 kwargs["user_id"] = user_id  # auth-scoped, never keyword-derived
             try:
                 results[call.name] = await spec.fn(session, tz=self.tz, now=now, **kwargs)

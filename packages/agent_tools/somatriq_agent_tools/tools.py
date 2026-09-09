@@ -44,6 +44,7 @@ from typing import Any, Final, cast
 from zoneinfo import ZoneInfo
 
 from somatriq_analytics.recovery import baseline as baseline_v1
+from somatriq_analytics.strength import StrengthSet, session_summary
 from somatriq_analytics.today_data import assemble_today, day_bounds_utc
 from somatriq_contracts.daily import FEATURE_SET_VERSION
 from somatriq_contracts.observations import VENDOR_DAILY_METRICS
@@ -475,4 +476,81 @@ async def get_data_quality(
             if insufficient
             else []
         ),
+    )
+
+
+# ── get_training ──────────────────────────────────────────────────────────
+
+
+DEFAULT_TRAINING_DAYS: Final[int] = 7
+
+_TRAINING_SQL = """
+    SELECT s.id, s.ts, s.source, t.exercise, t.weight_kg, t.reps
+    FROM health.training_sessions s
+    JOIN health.training_sets t ON t.session_id = s.id
+    WHERE s.user_id = :user_id AND s.ts >= :first_start
+    ORDER BY s.ts, t.exercise, t.set_index
+"""
+
+
+async def get_training(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    days: int = DEFAULT_TRAINING_DAYS,
+    tz: ZoneInfo,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Strength sessions over the trailing window with their §79 summaries.
+
+    M12 data finally reaches the coach (it post-dated the M8 toolset): each
+    session carries its exercises, set count, tonnage and hard sets —
+    computed by the same frozen session_summary the training API uses, so
+    the coach can never disagree with the app's numbers.
+    """
+    _require_window(days)
+    today = _local_today(tz, now)
+    first = today - timedelta(days=days - 1)
+    first_start = datetime(first.year, first.month, first.day, tzinfo=tz).astimezone(UTC)
+
+    rows = (
+        await session.execute(text(_TRAINING_SQL), {"user_id": user_id, "first_start": first_start})
+    ).all()
+
+    sessions: dict[uuid.UUID, dict[str, Any]] = {}
+    sets_by_session: dict[uuid.UUID, list[StrengthSet]] = {}
+    for session_id, session_ts, source, exercise, weight_kg, reps in rows:
+        sets_by_session.setdefault(session_id, []).append(
+            StrengthSet(
+                exercise=cast(str, exercise),
+                weight_kg=cast("float | None", weight_kg),
+                reps=int(reps),
+            )
+        )
+        local_day = cast(datetime, session_ts).astimezone(tz).date()
+        sessions[session_id] = {
+            "date": local_day.isoformat(),
+            "source": cast(str, source),
+        }
+
+    session_rows: list[dict[str, Any]] = []
+    for session_id, header in sessions.items():
+        summary = session_summary(sets_by_session[session_id])
+        session_rows.append(
+            {
+                **header,
+                "exercises": summary.exercises,
+                "sets": summary.set_count,
+                "tonnage_kg": summary.tonnage_kg,
+                "hard_sets": summary.hard_sets,
+            }
+        )
+
+    n = len(session_rows)
+    return envelope(
+        data={"days": days, "timezone": tz.key, "sessions": session_rows},
+        coverage={"window_days": days, "sessions": n},
+        sources=["health.training_sessions", "health.training_sets"],
+        quality=1.0 if n else 0.0,
+        caveats=[] if n else [f"no strength sessions in the last {days} days"],
     )

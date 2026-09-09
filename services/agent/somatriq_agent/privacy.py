@@ -72,7 +72,14 @@ UNKNOWN_TOOL_CAVEAT = "tool {name!r} result withheld: not cleared at privacy lev
 # The coach's own tool set (spec §94). Redactors below whitelist per tool;
 # anything outside this set is refused at every non-local level.
 _KNOWN_TOOLS: Final[frozenset[str]] = frozenset(
-    {"get_today", "get_baselines", "get_trends", "get_journal", "get_data_quality"}
+    {
+        "get_today",
+        "get_baselines",
+        "get_trends",
+        "get_journal",
+        "get_data_quality",
+        "get_training",
+    }
 )
 
 ResultDict = dict[str, Any]
@@ -170,6 +177,7 @@ _TOOL_DATA_KEYS: Final[dict[str, frozenset[str]]] = {
         }
     ),
     "get_journal": frozenset({"day", "events"}),
+    "get_training": frozenset({"days", "timezone", "sessions"}),
     "get_data_quality": frozenset({"days", "feature_set_version", "timezone"}),
 }
 
@@ -303,6 +311,20 @@ def _trends_summary(result: Mapping[str, Any]) -> ResultDict:
     return _rebuild(result, data={key: data[key] for key in _TREND_METADATA_KEYS if key in data})
 
 
+def _training_summary(result: Mapping[str, Any]) -> ResultDict:
+    """summary_only: window + session count — no exercises, no tonnage."""
+    data = result.get("data") or {}
+    sessions = data.get("sessions") or []
+    return _rebuild(
+        result,
+        data={
+            "days": data.get("days"),
+            "timezone": data.get("timezone"),
+            "session_count": len(sessions),
+        },
+    )
+
+
 # ── per-level redactor tables ────────────────────────────────────────────
 #
 # summary_only rebuilds the numeric interiors down to words and counts;
@@ -317,6 +339,7 @@ _REDACTORS: Final[dict[str, dict[str, Redactor]]] = {
         "get_trends": _trends_summary,
         "get_journal": _journal_summary,
         "get_data_quality": lambda result: _whitelisted(result, "get_data_quality"),
+        "get_training": _training_summary,
     },
     "aggregates": {
         "get_today": lambda result: _whitelisted(result, "get_today"),
@@ -324,6 +347,7 @@ _REDACTORS: Final[dict[str, dict[str, Redactor]]] = {
         "get_trends": lambda result: _whitelisted(result, "get_trends"),
         "get_journal": _journal_drop_text,
         "get_data_quality": lambda result: _whitelisted(result, "get_data_quality"),
+        "get_training": lambda result: _whitelisted(result, "get_training"),
     },
     "detailed": {
         "get_today": lambda result: _whitelisted(result, "get_today"),
@@ -331,6 +355,7 @@ _REDACTORS: Final[dict[str, dict[str, Redactor]]] = {
         "get_trends": lambda result: _whitelisted(result, "get_trends"),
         "get_journal": _journal_drop_text,
         "get_data_quality": lambda result: _whitelisted(result, "get_data_quality"),
+        "get_training": lambda result: _whitelisted(result, "get_training"),
     },
     "local": {},
 }

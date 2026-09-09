@@ -315,3 +315,91 @@ async def test_engine_propagates_provider_errors(db: AsyncSession, user_id: uuid
     engine = CoachEngine(ExplodingProvider(), privacy_level="local")
     with pytest.raises(ProviderError, match="provider down"):
         await engine.answer("How is my recovery today?", user_id, db, now=FROZEN_NOW)
+
+
+# ── get_training (the workouts fix: M12 data finally reaches the coach) ───
+
+
+def test_select_tools_training_questions_route_to_get_training() -> None:
+    for question in (
+        "What workouts did I do this week?",
+        "my training lately",
+        "did I lift on tuesday?",
+        "how much tonnage did I move?",
+        "gym summary",
+        "any strength work recently?",
+    ):
+        assert select_tools(question) == [ToolCall("get_training", {"days": 7})], question
+
+
+def test_workout_question_with_log_word_keeps_training_first() -> None:
+    """'log' is a journal keyword — the journal may join as context, but the
+    TRAINING tool must lead, never be displaced by the journal."""
+    calls = select_tools("What workouts did I log this week?")
+    assert calls[0] == ToolCall("get_training", {"days": 7})
+    assert ToolCall("get_journal") in calls
+
+
+async def _seed_training_session(db: AsyncSession) -> None:
+    from somatriq_analytics.strength import muscle_group_for, parse_training_line
+
+    owner, _ = await _ids(db)
+    parsed = parse_training_line("Bench press 80x8 85x6 90x4")
+    session_id = (
+        await db.execute(
+            text(
+                "INSERT INTO health.training_sessions (user_id, ts, source, raw_text) "
+                "VALUES (:user_id, :ts, 'api', :raw) RETURNING id"
+            ),
+            {
+                "user_id": owner,
+                "ts": datetime(2026, 8, 20, 18, 0, 0, tzinfo=UTC),
+                "raw": "Bench press 80x8 85x6 90x4",
+            },
+        )
+    ).scalar_one()
+    for index, parsed_set in enumerate(parsed.to_strength_sets()):
+        await db.execute(
+            text(
+                "INSERT INTO health.training_sets "
+                "(session_id, set_index, exercise, muscle_group, weight_kg, reps) "
+                "VALUES (:session_id, :set_index, :exercise, :muscle_group, :weight, :reps)"
+            ),
+            {
+                "session_id": session_id,
+                "set_index": index,
+                "exercise": parsed_set.exercise,
+                "muscle_group": muscle_group_for(parsed_set.exercise),
+                "weight": parsed_set.weight_kg,
+                "reps": parsed_set.reps,
+            },
+        )
+    await db.commit()
+
+
+@requires_db
+async def test_engine_answers_workout_question_with_seeded_session(
+    db: AsyncSession, user_id: uuid.UUID
+) -> None:
+    await _seed_training_session(db)
+    provider = RecordingProvider()
+    engine = CoachEngine(provider, privacy_level="local")
+
+    result = await engine.answer("What workouts did I do?", user_id, db, now=FROZEN_NOW)
+
+    assert result.tools_used[0] == "get_training"
+    # Exercises arrive normalized (lowercase surface names, spec §79).
+    assert "bench press" in provider.prompts[0]
+    # The session facts reached the provider: 80·8 + 85·6 + 90·4 = 1510 kg.
+    assert "1510" in provider.prompts[0]
+
+
+@requires_db
+async def test_engine_workout_question_without_sessions_is_honest(
+    db: AsyncSession, user_id: uuid.UUID
+) -> None:
+    provider = RecordingProvider()
+    engine = CoachEngine(provider, privacy_level="local")
+    result = await engine.answer("my training lately", user_id, db, now=FROZEN_NOW)
+    assert result.tools_used == ["get_training"]
+    assert "no strength sessions" in provider.prompts[0]
