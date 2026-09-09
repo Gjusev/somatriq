@@ -35,6 +35,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from somatriq_analytics.brief import build_morning_brief
+from somatriq_analytics.plan_data import assemble_plan
 from somatriq_analytics.strength import (
     ParsedTraining,
     muscle_group_for,
@@ -487,7 +488,8 @@ async def handle_command(
         return (await bind_chat(session, chat_id)).reply
     if command == "brief":
         data = await assemble_today(session, tz=tz, now=now)
-        return build_morning_brief(data, data.coverage_ratio)
+        plan = await assemble_plan(session, tz=tz, now=now, today_data=data)
+        return build_morning_brief(data, data.coverage_ratio, plan)
     if command == "status":
         return await _status_text(session, tz, now)
     if command == "log":

@@ -24,7 +24,7 @@ from datetime import date as date_type
 from datetime import time as time_type
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 SLEEP_NEED_ALGORITHM = "somatriq_sleep_need_v1"
 
@@ -76,7 +76,6 @@ Tier = Literal["rest", "light", "moderate", "hard"]
 
 
 class SleepNeedContribution(BaseModel):
-
     input: Literal["baseline", "sleep_debt", "recent_load", "recovery"]
     value: float | None = None
     minutes_added: float | None = None
@@ -122,3 +121,41 @@ class DayPlanResult(BaseModel):
     contributions: list[DayPlanContribution] = Field(default_factory=list)
     missing_inputs: list[str] = Field(default_factory=list)
     caveats: list[str] = Field(default_factory=list)
+
+
+# ── wire shapes ────────────────────────────────────────────────────────────
+
+
+class SleepDebtSummary(BaseModel):
+    """The 7-night debt feeding the need (window and counts stay visible)."""
+
+    debt_min: float | None = None
+    measured_days: int = 0
+    unmeasured_days: int = 0
+
+
+class PlanTodayResponse(BaseModel):
+    date: date_type
+    timezone: str
+    wake_time: time_type
+    wake_source: Literal["preference", "default"]
+    sleep_need: SleepNeedResult
+    plan: DayPlanResult
+    sleep_debt: SleepDebtSummary
+    coverage_ratio: float = Field(default=0.0, ge=0.0, le=1.0)
+    caveats: list[str] = Field(default_factory=list)
+
+
+# ADR 0019: per-key typed schemas at the API edge — every registered
+# preference is an explicit optional field on BOTH models; unknown keys are
+# rejected (extra="forbid"), absent keys read as "unset" server-side.
+
+
+class PreferenceUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    wake_time: time_type | None = None
+
+
+class PreferencesResponse(BaseModel):
+    wake_time: time_type | None = None

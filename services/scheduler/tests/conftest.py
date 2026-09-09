@@ -51,7 +51,7 @@ async def db(migrated_db: None) -> AsyncIterator[AsyncSession]:
                 "health.journal_events, "
                 "timeseries.heart_rate, timeseries.rr_interval, "
                 "health.sleep_stages, health.sleep_sessions, health.daily_observations, "
-                "derived.daily_features"
+                "derived.daily_features, derived.daily_derived, identity.user_preferences"
             )
         )
         await cleanup.commit()

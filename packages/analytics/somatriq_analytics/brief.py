@@ -15,6 +15,7 @@ deterministically from the largest |robust z'| recovery contribution
 from somatriq_contracts.daily import grade_quality
 from somatriq_contracts.recovery import RECOVERY_BASELINE_MIN_DAYS
 
+from .plan_data import PlanData
 from .today_data import TodayData
 
 # |z'| at which the insight earns "substantially" (mirrors the spec §102
@@ -91,9 +92,37 @@ def _missing_inputs_line(data: TodayData) -> str | None:
     return f"none — baselines still building (needs >= {RECOVERY_BASELINE_MIN_DAYS} days)"
 
 
-def build_morning_brief(today_data: TodayData, coverage: float) -> str:
+def _plan_lines(plan: PlanData) -> list[str]:
+    """The day's guidance in plain language — every line from real data."""
+    lines: list[str] = []
+    if plan.plan.tier is not None:
+        target = ""
+        if plan.plan.target_strain is not None:
+            target = (
+                f" (target strain {plan.plan.target_strain.min:g}-{plan.plan.target_strain.max:g})"
+            )
+        lines.append(f"guidance: {plan.plan.tier}{target}")
+    else:
+        lines.append("guidance: not available yet — recovery not earned")
+    if plan.plan.bedtime_window is not None:
+        lines.append(
+            f"in bed by {plan.plan.bedtime_window.start:%H:%M}-{plan.plan.bedtime_window.end:%H:%M}"
+        )
+    if plan.sleep_need.minutes is not None:
+        total = round(plan.sleep_need.minutes)
+        lines.append(f"sleep need: {total // 60} h {total % 60} min")
+    if plan.sleep_debt.debt_min is not None:
+        lines.append(f"sleep debt (7d, capped): {round(plan.sleep_debt.debt_min)} min")
+    return lines
+
+
+def build_morning_brief(
+    today_data: TodayData, coverage: float, plan_data: PlanData | None = None
+) -> str:
     """Render the §102 morning brief. ``coverage`` is the day's data coverage
     fraction in [0, 1] (spec §99) — it is ALWAYS shown, never fabricated.
+    ``plan_data`` (Block 1) renders the Plan section when the day's plan
+    was assembled alongside TODAY.
     """
     sections: list[list[str]] = [["Good morning"]]
 
@@ -115,6 +144,9 @@ def build_morning_brief(today_data: TodayData, coverage: float) -> str:
     insight = _main_insight(today_data)
     if insight is not None:
         sections.append(["Main insight", insight])
+
+    if plan_data is not None:
+        sections.append(["Plan", *_plan_lines(plan_data)])
 
     missing = _missing_inputs_line(today_data)
     if missing is not None:

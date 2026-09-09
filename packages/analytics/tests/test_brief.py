@@ -241,3 +241,94 @@ def test_baseline_helper_feeds_brief_without_invention() -> None:
     — the two pieces compose without ever faking a baseline."""
     assert baseline([100.0, 101.0]) is None
     assert baseline([float(i) for i in range(7)]) is not None
+
+
+# ── Plan section (Block 1) ─────────────────────────────────────────────────
+
+STRAIN_20 = [float(v) for v in range(10, 210, 10)]
+
+
+def _plan_data(*, degraded: bool = False):
+    from datetime import time as time_type
+
+    from somatriq_analytics.day_plan import day_plan_v1
+    from somatriq_analytics.plan_data import PlanData
+    from somatriq_analytics.sleep_need import SleepDebt, sleep_need_v1
+
+    if degraded:
+        need = sleep_need_v1(
+            DAY, baseline_sleep_min=None, sleep_debt_min=None, recent_load=None, recovery=None
+        )
+        debt = SleepDebt(debt_min=None, measured_days=0, unmeasured_days=7)
+        plan = day_plan_v1(
+            DAY,
+            recovery_score=None,
+            sleep_debt_min=None,
+            sleep_need_minutes=None,
+            strain_history=[],
+            wake_time=time_type(7, 0),
+        )
+    else:
+        need = sleep_need_v1(
+            DAY, baseline_sleep_min=480.0, sleep_debt_min=60.0, recent_load=None, recovery=40.0
+        )
+        debt = SleepDebt(debt_min=60.0, measured_days=7, unmeasured_days=0)
+        plan = day_plan_v1(
+            DAY,
+            recovery_score=60.0,
+            sleep_debt_min=60.0,
+            sleep_need_minutes=need.minutes,
+            strain_history=STRAIN_20,
+            wake_time=time_type(7, 0),
+        )
+    return PlanData(
+        date=DAY,
+        timezone="UTC",
+        wake_time=time_type(7, 0),
+        wake_source="default",
+        sleep_baseline=(480.0, 0.0),
+        sleep_debt=debt,
+        sleep_need=need,
+        plan=plan,
+    )
+
+
+def test_brief_with_plan_renders_plan_section() -> None:
+    data, coverage = _today(
+        recovery_inputs={"hrv": 106.0, "rhr": 60.0, "sleep": 441.0},
+        baselines={"hrv": (100.0, 12.0), "rhr": (60.0, 2.0), "sleep": (431.0, 20.0)},
+        hrv_rmssd=106.0,
+        sleep_minutes=441.0,
+        resting_hr=56.0,
+        coverage=0.97,
+    )
+    text = build_morning_brief(data, coverage, _plan_data())
+    assert "guidance: moderate (target strain 105-152.5)" in text
+    assert "in bed by 22:05-22:35" in text
+    assert "sleep need: 8 h 40 min" in text
+    assert "sleep debt (7d, capped): 60 min" in text
+
+
+def test_brief_without_plan_has_no_plan_section() -> None:
+    data, coverage = _today(
+        recovery_inputs={"hrv": None, "rhr": None, "sleep": None},
+        baselines={"hrv": None, "rhr": None, "sleep": None},
+        hrv_rmssd=None,
+        sleep_minutes=None,
+        resting_hr=None,
+    )
+    assert "Plan" not in build_morning_brief(data, coverage)
+
+
+def test_brief_plan_degrades_without_fabrication() -> None:
+    data, coverage = _today(
+        recovery_inputs={"hrv": None, "rhr": None, "sleep": None},
+        baselines={"hrv": None, "rhr": None, "sleep": None},
+        hrv_rmssd=None,
+        sleep_minutes=None,
+        resting_hr=None,
+    )
+    text = build_morning_brief(data, coverage, _plan_data(degraded=True))
+    assert "guidance: not available yet — recovery not earned" in text
+    assert "sleep need:" not in text
+    assert "in bed by" not in text

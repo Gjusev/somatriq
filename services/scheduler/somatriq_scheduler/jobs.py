@@ -24,6 +24,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from somatriq_analytics.brief import build_morning_brief
+from somatriq_analytics.plan_data import assemble_plan
 from somatriq_analytics.today_data import assemble_today
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -131,7 +132,8 @@ async def morning_tick(
 
     if not await _already_enqueued_today(session, "morning_brief", local_day):
         data = await assemble_today(session, tz=tz, now=now)
-        brief_text = build_morning_brief(data, data.coverage_ratio)
+        plan = await assemble_plan(session, tz=tz, now=now, today_data=data)
+        brief_text = build_morning_brief(data, data.coverage_ratio, plan)
         for channel in channels:
             await enqueue(
                 session,

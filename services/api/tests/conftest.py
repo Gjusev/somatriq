@@ -66,7 +66,7 @@ async def db(migrated_db: None) -> AsyncIterator[AsyncSession]:
                 "health.journal_events, "
                 "health.training_sets, health.training_sessions, "
                 "research.experiment_days, research.experiments, "
-                "derived.daily_features, "
+                "derived.daily_features, derived.daily_derived, identity.user_preferences, "
                 "ingest.failures, ingest.idempotency_keys, ingest.batches, "
                 "raw.raw_batches, identity.device_tokens, "
                 "identity.pairing_sessions, identity.account_credentials"
