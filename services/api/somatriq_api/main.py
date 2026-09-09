@@ -67,6 +67,7 @@ from somatriq_api import (  # noqa: E402
     correlations,
     devices,
     experiments,
+    explore,
     export,
     imports,
     ingest,
@@ -95,6 +96,7 @@ app.include_router(today.router)
 app.include_router(plan.router)
 app.include_router(journal.router)
 app.include_router(preferences.router)
+app.include_router(explore.router)
 app.include_router(notifications.router)
 app.include_router(correlations.router)
 app.include_router(coach.router)
