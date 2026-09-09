@@ -1413,3 +1413,210 @@ export async function downloadExportFile(path: string, filename: string): Promis
   anchor.remove();
   URL.revokeObjectURL(url);
 }
+
+
+// ── Today Plan + preferences (Block 1; ADR 0018/0019) ─────────────────────
+
+export type PlanTier = "rest" | "light" | "moderate" | "hard";
+
+export type SleepNeedContribution = {
+  input: "baseline" | "sleep_debt" | "recent_load" | "recovery";
+  value: number | null;
+  minutesAdded: number | null;
+  note: string | null;
+};
+
+export type SleepNeedResult = {
+  day: string;
+  /** Recommended minutes, or null when the baseline anchor is missing. */
+  minutes: number | null;
+  algorithmVersion: string;
+  contributions: SleepNeedContribution[];
+  missingInputs: string[];
+  caveats: string[];
+};
+
+export type TargetStrainRange = { min: number; max: number };
+
+/** Local clock times "HH:MM:SS"; a pre-midnight window belongs to the
+ * evening before the wake date. */
+export type BedtimeWindow = { start: string; end: string };
+
+export type DayPlanContribution = {
+  input: "recovery" | "sleep_debt" | "sleep_need" | "strain_history" | "wake_time";
+  value: number | null;
+  note: string | null;
+};
+
+export type DayPlanResult = {
+  day: string;
+  tier: PlanTier | null;
+  targetStrain: TargetStrainRange | null;
+  bedtimeWindow: BedtimeWindow | null;
+  algorithmVersion: string;
+  contributions: DayPlanContribution[];
+  missingInputs: string[];
+  caveats: string[];
+};
+
+export type SleepDebtSummary = {
+  debtMin: number | null;
+  measuredDays: number;
+  unmeasuredDays: number;
+};
+
+export type PlanTodayResponse = {
+  date: string;
+  timezone: string;
+  wakeTime: string;
+  wakeSource: "preference" | "default";
+  sleepNeed: SleepNeedResult;
+  plan: DayPlanResult;
+  sleepDebt: SleepDebtSummary;
+  coverageRatio: number;
+  caveats: string[];
+};
+
+export type Preferences = { wakeTime: string | null };
+
+function parseClock(value: unknown): string {
+  return typeof value === "string" && value !== "" ? value : unexpected();
+}
+
+function parseOptionalClock(value: unknown): string | null {
+  return value === null || value === undefined ? null : parseClock(value);
+}
+
+function parseSleepNeedContribution(raw: unknown): SleepNeedContribution {
+  if (!isRecord(raw)) unexpected();
+  if (
+    raw.input !== "baseline" &&
+    raw.input !== "sleep_debt" &&
+    raw.input !== "recent_load" &&
+    raw.input !== "recovery"
+  ) {
+    unexpected();
+  }
+  return {
+    input: raw.input,
+    value: parseOptionalFinite(raw.value),
+    minutesAdded: parseOptionalFinite(raw.minutes_added),
+    note: parseNullableString(raw.note ?? null),
+  };
+}
+
+function parseSleepNeed(raw: unknown): SleepNeedResult {
+  if (!isRecord(raw)) unexpected();
+  return {
+    day: parseDay(raw.day),
+    minutes: parseOptionalFinite(raw.minutes),
+    algorithmVersion: parseString(raw.algorithm_version),
+    contributions: Array.isArray(raw.contributions)
+      ? raw.contributions.map(parseSleepNeedContribution)
+      : [],
+    missingInputs: parseStringArray(raw.missing_inputs),
+    caveats: parseStringArray(raw.caveats),
+  };
+}
+
+function parseTier(value: unknown): PlanTier | null {
+  if (value === null || value === undefined) return null;
+  switch (value) {
+    case "rest":
+      return "rest";
+    case "light":
+      return "light";
+    case "moderate":
+      return "moderate";
+    case "hard":
+      return "hard";
+    default:
+      return unexpected();
+  }
+}
+
+function parseTargetStrain(raw: unknown): TargetStrainRange | null {
+  if (raw === null || raw === undefined) return null;
+  if (!isRecord(raw)) unexpected();
+  return {
+    min: parseFiniteNumber(raw.min) ?? unexpected(),
+    max: parseFiniteNumber(raw.max) ?? unexpected(),
+  };
+}
+
+function parseBedtime(raw: unknown): BedtimeWindow | null {
+  if (raw === null || raw === undefined) return null;
+  if (!isRecord(raw)) unexpected();
+  return { start: parseClock(raw.start), end: parseClock(raw.end) };
+}
+
+function parseDayPlanContribution(raw: unknown): DayPlanContribution {
+  if (!isRecord(raw)) unexpected();
+  const allowed = ["recovery", "sleep_debt", "sleep_need", "strain_history", "wake_time"];
+  if (typeof raw.input !== "string" || !allowed.includes(raw.input)) unexpected();
+  return {
+    input: raw.input as DayPlanContribution["input"],
+    value: parseOptionalFinite(raw.value),
+    note: parseNullableString(raw.note ?? null),
+  };
+}
+
+function parseDayPlan(raw: unknown): DayPlanResult {
+  if (!isRecord(raw)) unexpected();
+  return {
+    day: parseDay(raw.day),
+    tier: parseTier(raw.tier),
+    targetStrain: parseTargetStrain(raw.target_strain),
+    bedtimeWindow: parseBedtime(raw.bedtime_window),
+    algorithmVersion: parseString(raw.algorithm_version),
+    contributions: Array.isArray(raw.contributions)
+      ? raw.contributions.map(parseDayPlanContribution)
+      : [],
+    missingInputs: parseStringArray(raw.missing_inputs),
+    caveats: parseStringArray(raw.caveats),
+  };
+}
+
+function parsePlanToday(raw: unknown): PlanTodayResponse {
+  if (!isRecord(raw)) unexpected();
+  const wakeSource = raw.wake_source === "preference" ? "preference" : "default";
+  return {
+    date: parseDay(raw.date),
+    timezone: parseString(raw.timezone),
+    wakeTime: parseClock(raw.wake_time),
+    wakeSource,
+    sleepNeed: parseSleepNeed(raw.sleep_need),
+    plan: parseDayPlan(raw.plan),
+    sleepDebt: {
+      debtMin: parseOptionalFinite(isRecord(raw.sleep_debt) ? raw.sleep_debt.debt_min : null),
+      measuredDays: parseCounter(isRecord(raw.sleep_debt) ? raw.sleep_debt.measured_days : 0),
+      unmeasuredDays: parseCounter(isRecord(raw.sleep_debt) ? raw.sleep_debt.unmeasured_days : 0),
+    },
+    coverageRatio: parseRatio(raw.coverage_ratio, 0),
+    caveats: parseStringArray(raw.caveats),
+  };
+}
+
+function parsePreferences(raw: unknown): Preferences {
+  if (!isRecord(raw)) unexpected();
+  return { wakeTime: parseOptionalClock(raw.wake_time) };
+}
+
+/** The day's guidance: tier, target strain, bedtime window, sleep need. */
+export function fetchPlanToday(): Promise<PlanTodayResponse> {
+  return getJson("/api/v1/plan/today", true, parsePlanToday);
+}
+
+export function fetchPreferences(): Promise<Preferences> {
+  return getJson("/api/v1/preferences", true, parsePreferences);
+}
+
+/** Upsert one preference; unknown keys are rejected server-side (ADR 0019). */
+export async function updatePreferences(body: Preferences): Promise<Preferences> {
+  const res = await authRequest("/api/v1/preferences", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body.wakeTime === null ? {} : { wake_time: body.wakeTime }),
+  });
+  return parsePreferences(await res.json());
+}

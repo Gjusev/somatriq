@@ -1,6 +1,7 @@
 "use client";
 
 import TodayCard from "./components/today-card";
+import PlanCard from "./components/plan-card";
 import HeartRateCard from "./components/heart-rate-card";
 import DailyCard from "./components/daily-card";
 import CorrelationsCard from "./components/correlations-card";
@@ -39,6 +40,7 @@ export default function HomePage() {
           </header>
           <div className="section-grid section-grid-primary">
             <TodayCard />
+            <PlanCard />
             <HeartRateCard />
           </div>
         </section>
