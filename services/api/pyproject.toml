@@ -23,6 +23,9 @@ dependencies = [
     "somatriq-connectors",
     # zoneinfo has no system tz database on Windows (spec §161: only real needs)
     "tzdata>=2024.1; platform_system == 'Windows'",
+    # Block 3: deterministic Health Monitor PDF reports (ADR 0009 — the
+    # document is rendered from the assembler's structured output only).
+    "reportlab>=4.0",
 ]
 
 [dependency-groups]
