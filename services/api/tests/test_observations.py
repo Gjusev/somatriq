@@ -668,18 +668,39 @@ async def test_daily_read_lists_only_present_days(api: httpx.AsyncClient) -> Non
 @requires_db
 async def test_daily_read_prefers_freshest_device_report(guarded_api: httpx.AsyncClient) -> None:
     """Two devices reporting the same (day, metric): latest received wins.
-    The read rides the REAL account-JWT guard (spec §122)."""
+    The read rides the REAL account-JWT guard (spec §122). Both ingests
+    carry a device token so the test is SOMATRIQ_ENV-proof (in production
+    the unauthenticated dev fallback is 503 by design, never open writes)."""
     day = _today_utc()
+    register = await guarded_api.post(
+        "/api/v1/auth/register",
+        json={"username": "obs-user", "password": "correct-horse-battery"},
+    )
+    assert register.status_code == 200, register.text
+    account_jwt = str(register.json()["access_token"])
+
+    def _auth(token: str) -> dict[str, str]:
+        return {"Authorization": f"Bearer {token}"}
+
+    async def _pair(name: str) -> str:
+        session = await guarded_api.post("/api/v1/pairing/sessions", headers=_auth(account_jwt))
+        assert session.status_code == 200, session.text
+        confirmed = await guarded_api.post(
+            "/api/v1/pairing/confirm",
+            json={"pairing_code": session.json()["pairing_code"], "device_name": name},
+        )
+        assert confirmed.status_code == 200, confirmed.text
+        return str(confirmed.json()["token"])
+
+    first_token = await _pair("pixel-first")
     seed_report = _daily_payload(str(uuid.uuid4()), [_daily_item(day, "resting_hr", 50.0)])
-    assert (await guarded_api.post(DAILY_INGEST_PATH, json=seed_report)).status_code == 200
-    token, _device_id, account_jwt = await _pair_device(guarded_api)
+    assert (
+        await guarded_api.post(DAILY_INGEST_PATH, json=seed_report, headers=_auth(first_token))
+    ).status_code == 200
+    second_token = await _pair("pixel-second")
     paired_report = _daily_payload(str(uuid.uuid4()), [_daily_item(day, "resting_hr", 55.0)])
     assert (
-        await guarded_api.post(
-            DAILY_INGEST_PATH,
-            json=paired_report,
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        await guarded_api.post(DAILY_INGEST_PATH, json=paired_report, headers=_auth(second_token))
     ).status_code == 200
 
     unauthenticated = await guarded_api.get(DAILY_READ_PATH, params={"days": 14})
