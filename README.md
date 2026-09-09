@@ -26,6 +26,11 @@ Somatriq is an active, private prototype—not a finished consumer release. This
   web, Telegram and a scoped mobile write path, transparent behavior
   insights (lag-1 associations with n, p, BH-FDR q and confounders) and
   one-click conversion into N-of-1 experiments;
+- a longitudinal Explore surface (day-grain series with honest gaps,
+  device boundaries, algorithm versions, timezone changes and owner
+  annotations) and a private Health Monitor — vitals vs personal
+  baseline with coverage and provenance plus a shareable deterministic
+  PDF report, never a diagnosis;
 - data coverage, freshness, provenance and versioned algorithm semantics;
 - deterministic correlations and N-of-1 experiments with explicit compliance;
 - strength-session logging, load summaries and next-day recovery analysis;
