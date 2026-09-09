@@ -15,6 +15,11 @@ from dataclasses import dataclass
 from typing import Any
 
 CAFFEINE_KEYWORDS: tuple[str, ...] = ("coffee", "cafe", "café", "kaffee")
+ALCOHOL_KEYWORDS: tuple[str, ...] = ("alcohol", "beer", "wine", "vino", "cerveza")
+MEDICATION_KEYWORDS: tuple[str, ...] = ("meds", "medication", "medicina", "medicación")
+STRESS_KEYWORDS: tuple[str, ...] = ("stress", "stressed", "estrés", "estres")
+MEAL_KEYWORDS: tuple[str, ...] = ("meal", "comida", "dinner", "cena")
+TRAVEL_KEYWORDS: tuple[str, ...] = ("travel", "viaje", "flight", "vuelo")
 _NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?")
 
 
@@ -40,8 +45,10 @@ def _quantity(value: float) -> float | int:
 
 
 def parse_quick_log(text: str) -> ParsedLog:
-    """Caffeine keywords (+ optional literal number) -> caffeine event;
-    everything else -> journal note. Deterministic over the raw text."""
+    """Caffeine/alcohol keywords (+ optional literal number) -> quantity
+    events; the other behavior keywords -> binary events; everything else
+    -> journal note. First match wins (caffeine checked first) — the
+    output is deterministic over the raw text, always."""
     lowered = text.lower()
     if any(word in lowered for word in CAFFEINE_KEYWORDS):
         number = _first_number(text)
@@ -57,6 +64,28 @@ def parse_quick_log(text: str) -> ParsedLog:
             structured={"quantity": quantity},
             reply=f"Logged: caffeine (quantity {quantity})",
         )
+    if any(word in lowered for word in ALCOHOL_KEYWORDS):
+        number = _first_number(text)
+        if number is None:
+            return ParsedLog(
+                kind="alcohol",
+                structured={"estimated": False},
+                reply="Logged: alcohol (quantity not stated — not guessed)",
+            )
+        quantity = _quantity(number)
+        return ParsedLog(
+            kind="alcohol",
+            structured={"quantity": quantity},
+            reply=f"Logged: alcohol (quantity {quantity})",
+        )
+    for kind, keywords in (
+        ("medication", MEDICATION_KEYWORDS),
+        ("stress", STRESS_KEYWORDS),
+        ("meal", MEAL_KEYWORDS),
+        ("travel", TRAVEL_KEYWORDS),
+    ):
+        if any(word in lowered for word in keywords):
+            return ParsedLog(kind=kind, structured=None, reply=f"Logged: {kind}")
     return ParsedLog(
         kind="journal",
         structured=None,

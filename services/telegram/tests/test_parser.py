@@ -56,3 +56,41 @@ def test_empty_argument_is_a_journal_note() -> None:
     """Degenerate input still maps to the journal branch (never crashes)."""
     parsed = parse_quick_log("")
     assert parsed.kind == "journal"
+
+
+# ── Block 2: the five new behaviors (grill P7) ─────────────────────────────
+
+
+def test_alcohol_with_literal_number() -> None:
+    parsed = parse_quick_log("two beers... actually beer 3")
+    assert parsed.kind == "alcohol"
+    assert parsed.structured == {"quantity": 3}
+
+
+def test_alcohol_without_number_never_invents_quantity() -> None:
+    parsed = parse_quick_log("vino con cena")
+    assert parsed.kind == "alcohol"
+    assert parsed.structured == {"estimated": False}
+
+
+def test_binary_behaviors_match_keywords() -> None:
+    cases = {
+        "took meds": "medication",
+        "medicina por la tarde": "medication",
+        "very stressed today": "stress",
+        "mucho estrés": "stress",
+        "big meal": "meal",
+        "cena fuera": "meal",
+        "travel day": "travel",
+        "vuelo a madrid": "travel",
+    }
+    for text, expected_kind in cases.items():
+        parsed = parse_quick_log(text)
+        assert parsed.kind == expected_kind, text
+        assert parsed.structured is None, text
+
+
+def test_caffeine_wins_over_alcohol_when_both_present() -> None:
+    """First match wins, caffeine first — deterministic order, documented."""
+    parsed = parse_quick_log("coffee then beer")
+    assert parsed.kind == "caffeine"
