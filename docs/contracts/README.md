@@ -96,12 +96,26 @@ IDEMPOTENCY_CONFLICT; same UUID + same hash ⇒ original ack replayed.
 - Pairing code: 8 chars from `23456789ABCDEFGHJKMNPQRSTUVWXYZ`, TTL 10 min,
   single use, stored server-side **hashed**.
 - Device token: `sqt_dev_` + 43 base64url chars; stored **hashed** (sha256);
-  scopes exactly `["ingest.write","device.read","sync.read"]`.
+  scopes `["ingest.write","device.read","sync.read","data.read","journal.write"]`.
 - Account JWT: HS256 (SECRET_KEY), `sub`=user UUID, 12 h expiry — web session
   only, never accepted by ingest.
 - Login failures: 401 INVALID_CREDENTIALS. Register after account exists:
   409 ACCOUNT_EXISTS. Unknown/expired code: 404 PAIRING_SESSION_NOT_FOUND /
   410 PAIRING_CODE_EXPIRED.
+
+## Journal quick-log (Block 2, grill P7/P10)
+
+- `POST /api/v1/journal/events` with the account JWT (source `web`) or a
+  device token carrying `journal.write` (source `mobile` — the collector
+  never holds the account JWT).
+- Kinds: the six behaviors `caffeine|alcohol|medication|stress|meal|travel`
+  plus `journal`/`note`; `structured` only on quantity kinds, and
+  `quantity` ONLY when literally stated — otherwise `{"estimated": false}`,
+  never a guess (spec §103 rule, mirrored in the Telegram parser).
+- Mobile retries: send a stable `client_event_id` (UUID); the server
+  returns the SAME stored event, never a duplicate (ADR 0006 spirit).
+- DELETE is the owner's correction, user-authored kinds only; system kinds
+  (`training`, `experiment_checkin`) answer 409.
 
 ## Kotlin mirroring rules
 

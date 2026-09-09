@@ -22,6 +22,10 @@ Somatriq is an active, private prototype—not a finished consumer release. This
 - a daily Today Plan (training guidance tier, target-strain range, bedtime
   window) with explainable Sleep Need, capped sleep debt and user
   preferences;
+- a behavior journal as laboratory input: six quick-log behaviors across
+  web, Telegram and a scoped mobile write path, transparent behavior
+  insights (lag-1 associations with n, p, BH-FDR q and confounders) and
+  one-click conversion into N-of-1 experiments;
 - data coverage, freshness, provenance and versioned algorithm semantics;
 - deterministic correlations and N-of-1 experiments with explicit compliance;
 - strength-session logging, load summaries and next-day recovery analysis;
