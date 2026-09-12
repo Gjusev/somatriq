@@ -16,6 +16,7 @@ from datetime import date, datetime
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Float,
@@ -29,6 +30,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -581,7 +583,13 @@ class TrainingSession(Base):
 
     __tablename__ = "training_sessions"
     __table_args__ = (
-        Index("ix_training_sessions_user_ts", "user_id", "ts"),
+        # Mirrors migration 0010 exactly (ts DESC; named CHECK) so alembic
+        # autogenerate stays quiet and a metadata-built test env matches
+        # production's constraints.
+        Index("ix_training_sessions_user_ts", "user_id", text("ts DESC")),
+        CheckConstraint(
+            "source IN ('telegram', 'web', 'api')", name="training_sessions_source_check"
+        ),
         {"schema": "health"},
     )
 
@@ -602,12 +610,18 @@ class TrainingSet(Base):
 
     __tablename__ = "training_sets"
     __table_args__ = (
+        # Mirrors migration 0010: Postgres's own default name for the inline
+        # UNIQUE (session_id, exercise, set_index), plus the four named CHECKs.
         UniqueConstraint(
             "session_id",
             "exercise",
             "set_index",
-            name="training_sets_session_exercise_set_key",
+            name="training_sets_session_id_exercise_set_index_key",
         ),
+        CheckConstraint("reps > 0", name="training_sets_reps_positive"),
+        CheckConstraint("rir IS NULL OR rir >= 0", name="training_sets_rir_nonnegative"),
+        CheckConstraint("set_index >= 0", name="training_sets_set_index_nonnegative"),
+        CheckConstraint("weight_kg IS NULL OR weight_kg > 0", name="training_sets_weight_positive"),
         Index("ix_training_sets_session", "session_id"),
         {"schema": "health"},
     )
