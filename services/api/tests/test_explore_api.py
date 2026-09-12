@@ -146,14 +146,24 @@ async def test_series_computed_carries_coverage(api: httpx.AsyncClient, db: Asyn
 @requires_db
 async def test_context_overlays(api: httpx.AsyncClient, db: AsyncSession) -> None:
     user_id, device_id = await _ids(db)
+    # The M1 seed and the default active_from below stamp NOW(); TODAY is a FIXED
+    # date, so once the real calendar passes it every seeded device starts after
+    # the requested window and the devices overlay goes empty. Pin both inside
+    # the window so the overlap assertions test the query, not the calendar.
+    window_start = datetime.combine(TODAY - timedelta(days=30), datetime.min.time(), tzinfo=UTC)
+    await db.execute(
+        text("UPDATE identity.devices SET active_from = :start WHERE name = 'synthetic-01'"),
+        {"start": window_start},
+    )
     # A retired second device — its boundary overlaps the window's start.
     await db.execute(
         text(
-            "INSERT INTO identity.devices (user_id, name, model, active_to) "
-            "VALUES (:user_id, 'whoop-4-retired', 'whoop', :retired)"
+            "INSERT INTO identity.devices (user_id, name, model, active_from, active_to) "
+            "VALUES (:user_id, 'whoop-4-retired', 'whoop', :start, :retired)"
         ),
         {
             "user_id": user_id,
+            "start": window_start,
             "retired": datetime.combine(TODAY - timedelta(days=5), datetime.min.time(), tzinfo=UTC),
         },
     )
