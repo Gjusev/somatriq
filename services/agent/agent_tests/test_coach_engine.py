@@ -404,3 +404,51 @@ async def test_engine_workout_question_without_sessions_is_honest(
     result = await engine.answer("my training lately", user_id, db, now=FROZEN_NOW)
     assert result.tools_used == ["get_training"]
     assert "no strength sessions" in provider.prompts[0]
+
+
+@requires_db
+async def test_engine_training_hard_sets_honor_explicit_rir(
+    db: AsyncSession, user_id: uuid.UUID
+) -> None:
+    """get_training must carry rir/rpe through to the frozen §79 summary.
+
+    An explicitly easy session (RIR 4) has ``hard_sets == 0`` by the
+    explicit-effort rule; before the fix the columns were dropped from the
+    SQL and the 85%-of-best fallback counted the set hard — the coach
+    disagreeing with the training API on the same stored rows.
+    """
+    owner, _ = await _ids(db)
+    session_id = (
+        await db.execute(
+            text(
+                "INSERT INTO health.training_sessions (user_id, ts, source, raw_text) "
+                "VALUES (:user_id, :ts, 'api', :raw) RETURNING id"
+            ),
+            {
+                "user_id": owner,
+                "ts": datetime(2026, 8, 20, 18, 0, 0, tzinfo=UTC),
+                "raw": "Bench press 100x10 rir=4",
+            },
+        )
+    ).scalar_one()
+    await db.execute(
+        text(
+            "INSERT INTO health.training_sets "
+            "(session_id, set_index, exercise, muscle_group, weight_kg, reps, rir) "
+            "VALUES (:session_id, 0, 'bench press', 'chest', 100.0, 10, 4)"
+        ),
+        {"session_id": session_id},
+    )
+    await db.commit()
+
+    provider = RecordingProvider()
+    engine = CoachEngine(provider, privacy_level="local")
+    result = await engine.answer("my training lately", user_id, db, now=FROZEN_NOW)
+
+    assert result.tools_used == ["get_training"]
+    payload = json.loads(provider.prompts[0])["tool_results"]["get_training"]
+    session_row = payload["data"]["sessions"][0]
+    assert session_row["sets"] == 1
+    assert session_row["tonnage_kg"] == 1000.0
+    # RIR 4 travelled through: explicitly easy, never the 85% fallback's "hard".
+    assert session_row["hard_sets"] == 0

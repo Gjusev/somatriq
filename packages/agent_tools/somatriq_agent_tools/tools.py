@@ -485,7 +485,7 @@ async def get_data_quality(
 DEFAULT_TRAINING_DAYS: Final[int] = 7
 
 _TRAINING_SQL = """
-    SELECT s.id, s.ts, s.source, t.exercise, t.weight_kg, t.reps
+    SELECT s.id, s.ts, s.source, t.exercise, t.weight_kg, t.reps, t.rir, t.rpe
     FROM health.training_sessions s
     JOIN health.training_sets t ON t.session_id = s.id
     WHERE s.user_id = :user_id AND s.ts >= :first_start
@@ -519,12 +519,14 @@ async def get_training(
 
     sessions: dict[uuid.UUID, dict[str, Any]] = {}
     sets_by_session: dict[uuid.UUID, list[StrengthSet]] = {}
-    for session_id, session_ts, source, exercise, weight_kg, reps in rows:
+    for session_id, session_ts, source, exercise, weight_kg, reps, rir, rpe in rows:
         sets_by_session.setdefault(session_id, []).append(
             StrengthSet(
                 exercise=cast(str, exercise),
                 weight_kg=cast("float | None", weight_kg),
                 reps=int(reps),
+                rir=cast("int | None", rir),
+                rpe=cast("float | None", rpe),
             )
         )
         local_day = cast(datetime, session_ts).astimezone(tz).date()
