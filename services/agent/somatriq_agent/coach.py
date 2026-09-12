@@ -52,14 +52,17 @@ DEFAULT_METRIC: Final[str] = "resting_hr"
 # Question keyword → metric argument for get_baselines/get_trends. The
 # metrics are the agent_tools catalog names (our computed features win over
 # vendor observations for resting_hr; HRV's daily value is the vendor
-# avg_hrv observation).
+# avg_hrv observation). Spanish keywords ride alongside the English ones
+# (accented AND unaccented — keyboards without dead keys produce the
+# latter); stems over full words where safe ("entren" covers
+# entrenamiento/entrenar/entrené).
 METRIC_KEYWORDS: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
-    (("hrv", "heart rate variability"), "avg_hrv"),
-    (("resting heart", "resting hr", "rhr"), "resting_hr"),
-    (("sleep",), "total_sleep_min"),
-    (("strain",), "strain"),
-    (("spo2", "oxygen"), "spo2_pct"),
-    (("steps",), "steps"),
+    (("hrv", "heart rate variability", "vfc", "variabilidad"), "avg_hrv"),
+    (("resting heart", "resting hr", "rhr", "en reposo", "pulso basal"), "resting_hr"),
+    (("sleep", "sueño", "sueno", "descanso"), "total_sleep_min"),
+    (("strain", "carga"), "strain"),
+    (("spo2", "oxygen", "oxigeno", "oxígeno", "saturacion", "saturación"), "spo2_pct"),
+    (("steps", "pasos"), "steps"),
 )
 
 # Question keyword → tool. All listed keywords are lowercase substrings.
@@ -74,12 +77,33 @@ TODAY_EXPLICIT_KEYWORDS: Final[tuple[str, ...]] = (
     "readiness",
     "status",
     "recover",
+    "hoy",
+    "esta mañana",
+    "esta manana",
+    "cómo estoy",
+    "como estoy",
+    "estado",
+    "recuperacion",
+    "recuperación",
 )
 
 TOOL_KEYWORDS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     (
         "get_baselines",
-        ("baseline", "baselines", "usual", "typically", "normally", "average"),
+        (
+            "baseline",
+            "baselines",
+            "usual",
+            "typically",
+            "normally",
+            "average",
+            "habitual",
+            "normal",
+            "promedio",
+            "tipico",
+            "típico",
+            "basal",
+        ),
     ),
     (
         "get_trends",
@@ -92,6 +116,13 @@ TOOL_KEYWORDS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
             "improving",
             "declining",
             "history",
+            "tendencia",
+            "evolucion",
+            "evolución",
+            "mejorando",
+            "empeorando",
+            "historial",
+            "cambiando",
         ),
     ),
     (
@@ -107,15 +138,49 @@ TOOL_KEYWORDS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
             "strength",
             "tonnage",
             "exercise",
+            "entren",
+            "gimnasio",
+            "pesas",
+            "fuerza",
         ),
     ),
     (
         "get_journal",
-        ("journal", "note", "notes", "diary", "log", "logged", "caffeine", "coffee"),
+        (
+            "journal",
+            "note",
+            "notes",
+            "diary",
+            "log",
+            "logged",
+            "caffeine",
+            "coffee",
+            "diario",
+            "notas",
+            "cafe",
+            "café",
+            "cafeina",
+            "cafeína",
+            "registr",
+        ),
     ),
     (
         "get_data_quality",
-        ("quality", "coverage", "missing data", "missing", "gap", "gaps", "reliable"),
+        (
+            "quality",
+            "coverage",
+            "missing data",
+            "missing",
+            "gap",
+            "gaps",
+            "reliable",
+            "calidad",
+            "cobertura",
+            "falta",
+            "hueco",
+            "huecos",
+            "fiable",
+        ),
     ),
     (
         "get_today",
@@ -132,6 +197,15 @@ TOOL_KEYWORDS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
             "how am i",
             "this morning",
             "feel",
+            "hoy",
+            "recuperacion",
+            "recuperación",
+            "sueño",
+            "sueno",
+            "descanso",
+            "como estoy",
+            "cómo estoy",
+            "estado",
         ),
     ),
 )

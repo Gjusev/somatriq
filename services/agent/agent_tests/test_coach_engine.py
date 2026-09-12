@@ -332,6 +332,30 @@ def test_select_tools_training_questions_route_to_get_training() -> None:
         assert select_tools(question) == [ToolCall("get_training", {"days": 7})], question
 
 
+def test_select_tools_spanish_questions_route() -> None:
+    """The keyword router is bilingual (accented AND unaccented spellings),
+    so the owner's natural phrasing never falls through to NO_TOOL_ANSWER."""
+    for question in (
+        "¿qué entrené esta semana?",
+        "qué entrenamiento hice",
+        "resumen del gimnasio",
+        "cuánto pesas moví",  # unaccented keyboard
+    ):
+        assert select_tools(question) == [ToolCall("get_training", {"days": 7})], question
+    assert select_tools("cómo estoy hoy") == [ToolCall("get_today")]
+    assert select_tools("como estoy") == [ToolCall("get_today")]
+    assert select_tools("tendencia de mi variabilidad") == [
+        ToolCall("get_trends", {"metric": "avg_hrv", "days": 14})
+    ]
+    assert select_tools("mi pulso en reposo habitual") == [
+        ToolCall("get_baselines", {"metric": "resting_hr", "days": 28})
+    ]
+    assert select_tools("qué calidad tienen los datos") == [
+        ToolCall("get_data_quality", {"days": 14})
+    ]
+    assert select_tools("qué he registrado en el diario") == [ToolCall("get_journal")]
+
+
 def test_workout_question_with_log_word_keeps_training_first() -> None:
     """'log' is a journal keyword — the journal may join as context, but the
     TRAINING tool must lead, never be displaced by the journal."""
