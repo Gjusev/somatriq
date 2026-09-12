@@ -275,6 +275,39 @@ async def test_create_rejects_empty_sets(training_client: TestClient, db: AsyncS
     assert response.status_code == 422
 
 
+@requires_db
+async def test_create_rejects_future_ts(training_client: TestClient, db: AsyncSession) -> None:
+    """A future ts would ride every trailing window until its date arrives
+    and surface as a phantom ISO-week row; 5 min of clock skew is allowed."""
+    response = training_client.post(
+        f"{TRAINING}/sessions",
+        json={
+            "ts": "2030-01-01T00:00:00Z",
+            "sets": [{"exercise": "Squat", "weight_kg": 100, "reps": 5}],
+        },
+        headers=await _auth_headers(),
+    )
+    assert response.status_code == 422
+    count = await db.execute(text("SELECT count(*) FROM health.training_sessions"))
+    assert count.scalar_one() == 0
+
+
+@requires_db
+async def test_create_accepts_ts_within_clock_skew(
+    training_client: TestClient, db: AsyncSession
+) -> None:
+    two_minutes_ahead = datetime.now(UTC) + timedelta(minutes=2)
+    response = training_client.post(
+        f"{TRAINING}/sessions",
+        json={
+            "ts": two_minutes_ahead.isoformat(),
+            "sets": [{"exercise": "Squat", "weight_kg": 100, "reps": 5}],
+        },
+        headers=await _auth_headers(),
+    )
+    assert response.status_code == 200
+
+
 # ── GET /sessions ─────────────────────────────────────────────────────────
 
 

@@ -28,7 +28,7 @@ from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from somatriq_analytics.correlation_data import (
     RESPONSE_RECOVERY_METRICS,
     TRAINING_LOAD_METRICS,
@@ -94,6 +94,16 @@ class TrainingSessionCreate(BaseModel):
     ts: datetime | None = None
     raw_text: str | None = Field(default=None, max_length=4000)
     sets: list[TrainingSetInput] = Field(min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def _ts_not_in_the_future(self) -> "TrainingSessionCreate":
+        """A future ``ts`` would sit inside every "trailing window" read
+        (get_training, the session list) until its date arrives, and surface
+        as a phantom ISO-week row. Allow 5 minutes of clock skew, no more."""
+        if self.ts is not None and self.ts > datetime.now(UTC) + timedelta(minutes=5):
+            msg = "ts must not be in the future"
+            raise ValueError(msg)
+        return self
 
 
 class StrengthSummaryResponse(BaseModel):
@@ -279,7 +289,12 @@ async def list_training_sessions(
     weekly (ISO-week) tonnage / hard-set aggregates; account JWT or
     data.read device token (spec §122), scoped to the authenticated user."""
     tz = ZoneInfo(get_settings().user_timezone)
-    cutoff = datetime.now(UTC) - timedelta(days=days)
+    # Local-midnight aligned, the same window math get_training uses: a bare
+    # `now - days` cuts mid-evening of the first day and disagrees with the
+    # coach's window for the same `days` value.
+    today = datetime.now(UTC).astimezone(tz).date()
+    first = today - timedelta(days=days - 1)
+    cutoff = datetime(first.year, first.month, first.day, tzinfo=tz).astimezone(UTC)
     sessions = list(
         (
             await session.execute(
