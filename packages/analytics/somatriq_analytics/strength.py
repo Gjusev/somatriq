@@ -118,8 +118,22 @@ _HARD_E1RM_FRACTION: Final = 0.85
 
 _WEIGHTED_RE: Final = re.compile(r"^(\d+(?:[.,]\d+)?)\s*[xX×]\s*(\d+)$")
 _BARE_REPS_RE: Final = re.compile(r"^\d+$")
+_X_REPS_RE: Final = re.compile(r"^[xX×](\d{1,4})$")
 _RIR_RE: Final = re.compile(r"^rir\s*=\s*(\d+)$", re.IGNORECASE)
 _RPE_RE: Final = re.compile(r"^rpe\s*=\s*(\d+(?:[.,]\d+)?)$", re.IGNORECASE)
+
+# Wire-side sanity caps, mirrored from the API's TrainingSetInput bounds
+# (services/api/somatriq_api/training.py). The Telegram path inserts parser
+# output straight into integer/double columns: without these, a fat-fingered
+# line like "/log bench 99999999999x2147483648" parses, overflows int4 at
+# INSERT, and the bot's per-update handler swallows the error — the user
+# gets no reply at all. Refused lines fail safe (None → journal quick-log
+# fallback), exactly like the negative-value guards above.
+MAX_WEIGHT_KG: Final = 1_000.0
+MAX_REPS: Final = 1_000
+MAX_RIR: Final = 30
+MIN_RPE: Final = 1.0
+MAX_RPE: Final = 10.0
 
 
 @dataclass(frozen=True)
@@ -231,22 +245,39 @@ def parse_training_line(text: str) -> ParsedTraining | None:
             continue
         rir = _RIR_RE.match(token)
         if rir is not None:
-            effort.append(("rir", float(rir.group(1)), index, len(weighted) + len(bare_reps)))
+            rir_value = int(rir.group(1))
+            if rir_value > MAX_RIR:
+                return None
+            effort.append(("rir", float(rir_value), index, len(weighted) + len(bare_reps)))
             sets_started = sets_started or bool(weighted or bare_reps)
             continue
         rpe = _RPE_RE.match(token)
         if rpe is not None:
-            value = float(rpe.group(1).replace(",", "."))
-            effort.append(("rpe", value, index, len(weighted) + len(bare_reps)))
+            rpe_value = float(rpe.group(1).replace(",", "."))
+            if not MIN_RPE <= rpe_value <= MAX_RPE:
+                return None
+            effort.append(("rpe", rpe_value, index, len(weighted) + len(bare_reps)))
             sets_started = sets_started or bool(weighted or bare_reps)
             continue
         weighted_match = _WEIGHTED_RE.match(token)
         if weighted_match is not None:
             weight = float(weighted_match.group(1).replace(",", "."))
             reps = int(weighted_match.group(2))
-            if weight <= 0 or reps <= 0:
+            if not 0 < weight <= MAX_WEIGHT_KG or not 0 < reps <= MAX_REPS:
                 return None
             weighted.append((weight, reps))
+            sets_started = True
+            continue
+        x_reps_match = _X_REPS_RE.match(token)
+        if x_reps_match is not None:
+            # "squats x12 x10": the x-prefixed-reps bodyweight shorthand. Without this
+            # branch the tokens were silently absorbed as exercise words, the line ended
+            # with zero sets, and a real training session fell through to the journal
+            # quick-log instead (bot.py interception order).
+            reps = int(x_reps_match.group(1))
+            if not 0 < reps <= MAX_REPS:
+                return None
+            bare_reps.append(reps)
             sets_started = True
             continue
         if _BARE_REPS_RE.match(token):
@@ -286,6 +317,7 @@ def parse_training_line(text: str) -> ParsedTraining | None:
         if token
         and (
             _WEIGHTED_RE.match(token) is not None
+            or _X_REPS_RE.match(token) is not None
             or (_BARE_REPS_RE.match(token) is not None and (weighted or len(bare_reps) >= 2))
         )
     )

@@ -288,3 +288,44 @@ def test_summary_empty_sets() -> None:
     assert summary.relative_intensity is None
     assert summary.volume_by_group == {}
     assert summary.exercises == []
+
+
+# ── wire-side sanity caps + the x-reps bodyweight shorthand ──────────────
+
+
+def test_x_reps_shorthand_is_bodyweight_sets() -> None:
+    """'squats x12 x10' was silently absorbed as exercise words, ended with
+    zero sets, and the real session fell through to the journal quick-log."""
+    parsed = parse_training_line("Bodyweight squats x12 x10")
+    assert parsed is not None
+    assert parsed.exercise == "bodyweight squats"
+    assert parsed.sets == [
+        ParsedSet(weight_kg=None, reps=12, rir=None, rpe=None),
+        ParsedSet(weight_kg=None, reps=10, rir=None, rpe=None),
+    ]
+
+
+def test_x_reps_trailing_effort_applies_to_every_set() -> None:
+    parsed = parse_training_line("push-ups x12 x10 rir=2")
+    assert parsed is not None
+    assert parsed.sets == [
+        ParsedSet(weight_kg=None, reps=12, rir=2, rpe=None),
+        ParsedSet(weight_kg=None, reps=10, rir=2, rpe=None),
+    ]
+
+
+def test_overflow_numbers_are_refused_not_silently_dropped() -> None:
+    """A fat-fingered line must fail safe at the parser, not overflow int4 at
+    INSERT and die silently inside the bot's update handler."""
+    assert parse_training_line("bench 99999999999x2147483648") is None
+    assert parse_training_line("bench 100x1001") is None
+    assert parse_training_line("bench 1001x5") is None
+    assert parse_training_line("bench 100x5 rir=31") is None
+    assert parse_training_line("bench 100x5 rpe=10.5") is None
+    assert parse_training_line("bench 100x5 rpe=0.5") is None
+
+
+def test_cap_boundaries_are_accepted() -> None:
+    parsed = parse_training_line("bench 1000x1000 rir=30 rpe=10")
+    assert parsed is not None
+    assert parsed.sets == [ParsedSet(weight_kg=1000.0, reps=1000, rir=30, rpe=10.0)]
