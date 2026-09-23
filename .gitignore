@@ -40,3 +40,6 @@ scripts/.m3_device_token
 # MSYS crash traces
 tmp/
 *.stackdump
+
+# brag video workspace
+brag-output/
