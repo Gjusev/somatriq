@@ -36,3 +36,7 @@ Thumbs.db
 # M3 chaos harness collector state (contains device token + queued payloads)
 scripts/.m3_collector_state.json
 scripts/.m3_device_token
+
+# MSYS crash traces
+tmp/
+*.stackdump

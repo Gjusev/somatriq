@@ -7,7 +7,7 @@ Walks the full ADR 0015 pairing dance + the ADR 0003 raw envelope:
     devices list -> metric read.
 
 Usage:
-    python scripts/e2e_smoke_m2.py https://somatriq.mokka-dev.de <username> <password>
+    python scripts/e2e_smoke_m2.py https://somatriq.example.com <username> <password>
 
 Exits non-zero on any violated expectation. The passphrase is only used to
 claim/login the single local account (first caller wins — after that it logs

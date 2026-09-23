@@ -7,7 +7,7 @@ contribution; RHR via 40 buckets of HR per day (quiet hour at 52bpm);
 sleep duration ~7.5h steady, tonight 8.1h (slightly positive).
 
 Usage:
-    python scripts/m6_seed_history.py https://somatriq.mokka-dev.de
+    python scripts/m6_seed_history.py https://somatriq.example.com
 Reads scripts/.m3_device_token (device-token auth).
 """
 
@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
-BASE = (sys.argv[1] if len(sys.argv) > 1 else "https://somatriq.mokka-dev.de").rstrip("/")
+BASE = (sys.argv[1] if len(sys.argv) > 1 else "https://somatriq.example.com").rstrip("/")
 with open("scripts/.m3_device_token", encoding="utf-8") as _f:
     TOKEN = _f.read().strip()
 TZ = "Europe/Madrid"

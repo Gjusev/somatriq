@@ -1,7 +1,7 @@
 """M1 end-to-end smoke against a deployed Somatriq origin (spec §152 path 1).
 
 Usage:
-    python scripts/e2e_smoke.py https://somatriq.mokka-dev.de <INGEST_TOKEN>
+    python scripts/e2e_smoke.py https://somatriq.example.com <INGEST_TOKEN>
 
 Posts a synthetic heart-rate batch TWICE (idempotency proof), then reads the
 metric endpoint. Metric reads carry the account JWT (spec §122) — set

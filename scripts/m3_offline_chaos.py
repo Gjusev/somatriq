@@ -12,13 +12,13 @@ Drives a simulated collector whose semantics MIRROR the Kotlin SyncEngine
 Run against the real origin with a REAL outage (compose stopped via Dokploy):
 
     # terminal 1: start collecting while online
-    python scripts/m3_offline_chaos.py https://somatriq.mokka-dev.de collect --minutes 2
+    python scripts/m3_offline_chaos.py https://somatriq.example.com collect --minutes 2
     # ... stop the stack (dokploy) ...
-    python scripts/m3_offline_chaos.py https://somatriq.mokka-dev.de collect --offline-minutes 3
+    python scripts/m3_offline_chaos.py https://somatriq.example.com collect --offline-minutes 3
     # ... start the stack ...
-    python scripts/m3_offline_chaos.py https://somatriq.mokka-dev.de drain
+    python scripts/m3_offline_chaos.py https://somatriq.example.com drain
     SQT_OWNER_USER=... SQT_OWNER_PASS=... \
-        python scripts/m3_offline_chaos.py https://somatriq.mokka-dev.de verify
+        python scripts/m3_offline_chaos.py https://somatriq.example.com verify
 
 `verify` also checks the read side (spec §122): the metric endpoint must
 answer 401 without the account JWT and serve the owner after login, so the
@@ -39,7 +39,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-BASE = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "https://somatriq.mokka-dev.de"
+BASE = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "https://somatriq.example.com"
 CMD = sys.argv[2] if len(sys.argv) > 2 else ""
 STATE = Path(__file__).parent / ".m3_collector_state.json"
 BACKOFF_S = 2.0
