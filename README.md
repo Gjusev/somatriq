@@ -6,6 +6,12 @@
 
 **Private biometric intelligence, from raw signal to personal evidence.**
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Python 3.12](https://img.shields.io/badge/Python-3.12%20·%20uv-blue)
+![PostgreSQL + TimescaleDB](https://img.shields.io/badge/PostgreSQL-TimescaleDB-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-services-green)
+![NOOP fork collector](https://img.shields.io/badge/Collector-NOOP%20fork%20·%20PolyForm--NC-orange)
+
 Somatriq is a self-hosted platform for collecting, preserving and understanding longitudinal health data. Its mobile Collector is based on a maintained fork of [NOOP](https://github.com/ryanbr/noop): NOOP supplies the working WHOOP Bluetooth foundation; the Somatriq fork adds a private sync and analysis path that you control.
 
 ![Biometric signals converging into the Somatriq measurement matrix](docs/brand/somatriq-signal-matrix.webp)
@@ -50,15 +56,21 @@ The Android Collector is a separate NOOP fork by design. It already contains the
 | **Telegram** | Quick health questions, event logging and experiment workflows |
 | **API + workers** | Validation, idempotent ingest, deterministic analytics, reprocessing and notifications |
 
-```text
-WHOOP 4.0 / 5.0 / MG
-          ↓ BLE
-NOOP-based Somatriq Collector
-          ↓ local SQLite + queued HTTPS sync
-Raw archive + PostgreSQL / TimescaleDB
-          ↓
-Deterministic analytics → Web · MCP · Telegram · notifications
+```mermaid
+flowchart TB
+    B[WHOOP 4.0 / 5.0 / MG] -- BLE --> C[NOOP-fork Collector<br/>local SQLite · durable offline queue]
+    C -- idempotent queued HTTPS<br/>scoped device tokens --> ING[api · FastAPI<br/>validation · batch ingest]
+    ING --> RAW[(raw archive<br/>immutable frames)]
+    ING --> PG[(PostgreSQL + TimescaleDB<br/>system of record)]
+    WRK[worker · scheduler<br/>deterministic analytics] --> PG
+    RAW --> WRK
+    WEB[web · Next.js static export] --> ING
+    MCP[mcp · domain-scoped tools] --> PG
+    TG[telegram · agent] --> LLM[AI explains structured results<br/>— never computes statistics]
+    PG --> OUT[Today Plan · Explore · correlations<br/>N-of-1 experiments · PDF report]
 ```
+
+Full detail and the decision record behind it: [`docs/architecture.md`](docs/architecture.md) and the [ADRs](docs/adr/).
 
 ## Screenshots
 
@@ -119,18 +131,24 @@ The master specification is [`docs/SPEC.md`](docs/SPEC.md), the shared domain la
 uv sync
 uv run pytest
 
-# Web
+# Web (static export)
 cd apps/web
 npm install
 npm run typecheck
 npm run build
-
-# Full stack; includes the one-shot migration gate
-docker compose up --build
 ```
 
-Local behavior mirrors the intended Dokploy Compose deployment. PostgreSQL remains on the private Docker network and production operations use the official Dokploy MCP.
+Full stack: `cp .env.example .env` then `docker compose up --build`. The
+Compose file targets the deployment shape — a Traefik edge on the external
+`dokploy` network with `SOMATRIQ_HOST` routing `/`, `/api` and `/mcp`
+(ADR 0007). On that host it includes the one-shot migration gate and keeps
+PostgreSQL on the private network; on a bare laptop without the edge proxy,
+run the checks above and develop the web app against a deployed API.
 
 ## License and lineage
 
-This repository is private while licensing is finalized. `LICENSE`, `NOTICE` and `ATTRIBUTION.md` document the current position. The mobile fork inherits NOOP's PolyForm Noncommercial terms for NOOP-derived code; the server reuses documented protocol facts, never NOOP implementation code. See [ADR 0004](docs/adr/0004-noop-fork-is-mobile-collector.md) and the [fork research](docs/research/noop-fork-research.md).
+This server repository is MIT-licensed. It contains no NOOP-derived code: it reuses documented BLE protocol facts, which NOOP's PolyForm Noncommercial license expressly declares uncopyrightable. The separate Android Collector fork inherits NOOP's PolyForm Noncommercial terms for NOOP-derived code. `NOTICE`, `ATTRIBUTION.md`, [ADR 0004](docs/adr/0004-noop-fork-is-mobile-collector.md) and the [fork research](docs/research/noop-fork-research.md) document the full position.
+
+## Author
+
+**Youssef Ouhaghi Ahmian** — [mokka-agentur.de](https://mokka-agentur.de) · [GitHub](https://github.com/Gjusev)

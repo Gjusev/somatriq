@@ -1,15 +1,29 @@
-LICENSE — PLACEHOLDER (private repository)
+MIT License
 
-Status: private, not distributed. Ratified before any publication.
+Copyright (c) 2026 Youssef Ouhaghi Ahmian
 
-Somatriq intends a noncommercial source-available license compatible with the
-restrictions inherited from NOOP. The NOOP license inventory (ADR 0004) is a
-required M0 deliverable; until it is complete and a license is ratified:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-- This repository must remain private.
-- No redistribution, no public forks, no publishing of derived builds.
-- NOOP attribution obligations remain in force regardless (see NOTICE and
-  ATTRIBUTION.md).
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-Decision record: docs/grill/2026-09-04-spec-grill.md, decision 5 ("Private for
-now").
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+Lineage note: this server repository contains no NOOP-derived code. It uses
+only BLE protocol facts that NOOP's PolyForm Noncommercial license expressly
+declares uncopyrightable. The separate Android Collector fork (Gjusev/noop)
+inherits NOOP's PolyForm Noncommercial terms for NOOP-derived code. See
+NOTICE, ATTRIBUTION.md and docs/research/noop-fork-research.md.
