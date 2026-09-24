@@ -1,0 +1,6 @@
+# Synthetic password-change fixtures in test_auth.py, not live credentials.
+# Restrict exceptions to these reviewed historical findings.
+91d1d2f86ce4d801cbbb65a86a81bf9e48d70486:services/api/tests/test_auth.py:generic-api-key:159
+91d1d2f86ce4d801cbbb65a86a81bf9e48d70486:services/api/tests/test_auth.py:generic-api-key:170
+91d1d2f86ce4d801cbbb65a86a81bf9e48d70486:services/api/tests/test_auth.py:generic-api-key:188
+91d1d2f86ce4d801cbbb65a86a81bf9e48d70486:services/api/tests/test_auth.py:generic-api-key:218

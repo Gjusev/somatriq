@@ -3,7 +3,8 @@
 Somatriq is a self-hosted biometric platform: a NOOP-forked Android collector
 speaks BLE to WHOOP bands, buffers raw frames locally, and syncs them over
 HTTPS into a Python service workspace where every derived number is computed
-deterministically and versioned. Nothing leaves the server you own.
+deterministically and versioned. Local AI is the default; configured external
+models, Telegram, remote notifications and backups have explicit egress paths.
 
 ## System shape
 
