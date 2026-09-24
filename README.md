@@ -12,7 +12,7 @@
 
 ![Somatriq dashboard with synthetic recovery, heart rate, coverage and provenance data](docs/brand/screenshots/dashboard-desktop.png)
 
-[▶ 17s demo video](docs/brand/screenshots/brag.mp4) — the app in motion.
+[![17s demo video — click to play](docs/brand/screenshots/brag-poster.png)](docs/brand/screenshots/brag.mp4)
 
 A self-hosted system for preserving raw wearable measurements and turning them into explainable daily features, longitudinal analysis and personal experiments. **Python calculates the statistics; AI explains structured results.**
 
